@@ -1,17 +1,13 @@
 (ns lan-clip.core
-  (:require [clojure.java.io :as jio])
-  (:import (java.awt Toolkit Image Color)
+  (:require [clojure.java.io :as jio]
+            [lan-clip.util :as util])
+  (:import (java.awt Toolkit)
            (java.awt.datatransfer DataFlavor ClipboardOwner Clipboard)
            (javax.imageio ImageIO)
-           (java.io File)
-           (java.awt.image RenderedImage BufferedImage ImageObserver)
-           (java.util.concurrent.locks ReentrantLock Condition)))
-
-(def clip (.getSystemClipboard (Toolkit/getDefaultToolkit)))
+           (org.apache.commons.codec.digest DigestUtils)))
 
 (defn- set-owner [clpbd owner]
   (.setContents clpbd (.getContents clpbd nil) owner))
-
 
 (defrecord Owner
   []
@@ -26,77 +22,57 @@
 (defn- print-string-on-clipboard [clip]
   (println (.getData clip DataFlavor/stringFlavor)))
 
-(defn- ^ImageObserver image-observer [^ReentrantLock lock ^Condition size? ^Condition data?]
-  (proxy [ImageObserver]
-         []
-    (imageUpdate [_ info-flags _ _ _ _]
-      (.lock lock)
-      (try
-        (cond (not= 0 (bit-and info-flags ImageObserver/ALLBITS))
-              (do
-                (.signal size?)
-                (.signal data?)
-                false)
+(defn- best-fit-flavor [^Clipboard clip]
+  (first (filter #(.isDataFlavorAvailable clip %)
+                 [DataFlavor/javaFileListFlavor
+                  DataFlavor/imageFlavor
+                  DataFlavor/stringFlavor])))
 
-              (not= 0 (bit-and info-flags (bit-or ImageObserver/WIDTH ImageObserver/HEIGHT)))
-              (do
-                (.signal size?)
-                true)
-
-              :else
-              true)
-        (finally
-          (.unlock lock))))))
-
-(defn- ^BufferedImage buffered-image [^Image image]
-  (if (instance? BufferedImage image)
-    image
-    (let [lock (ReentrantLock.)
-          size? (.newCondition lock)
-          data? (.newCondition lock)
-          o (image-observer lock size? data?)
-          width (atom (.getWidth image o))
-          height (atom (.getHeight image o))]
-      (.lock lock)
-      (try (while (or (< @width 0) (< @height 0))
-             (.awaitUninterruptibly size?)
-             (reset! width (.getWidth image o))
-             (reset! height (.getHeight image o)))
-           (let [bi (BufferedImage. @width @height BufferedImage/TYPE_INT_ARGB)
-                 g (.createGraphics bi)]
-             (try
-               (doto g
-                 (.setBackground (Color. 0 true))
-                 (.clearRect 0 0 @width @height))
-               (while (not (.drawImage g image 0 0 o))
-                 (.awaitUninterruptibly data?))
-               (finally
-                 (.dispose g)))
-             bi)
-           (finally
-             (.unlock lock))))))
-
-(defmulti handle-flavor (fn [^Clipboard clip]
-                          (first (filter #(.isDataFlavorAvailable clip %) [DataFlavor/imageFlavor
-                                                                           DataFlavor/stringFlavor
-                                                                           DataFlavor/javaFileListFlavor]))))
+(defmulti handle-flavor best-fit-flavor)
 
 (defmethod handle-flavor DataFlavor/stringFlavor [clip]
   (print-string-on-clipboard clip))
 
 (defmethod handle-flavor DataFlavor/imageFlavor [clip]
   (let [data (.getData clip DataFlavor/imageFlavor)]
+    (println data)
+    (ImageIO/write (util/buffered-image data)
+                   "png"
+                   (jio/file (str "D:/" (System/currentTimeMillis) ".png")))))
 
-    (ImageIO/write ^RenderedImage (buffered-image data) "png" ^File (jio/file (str "D:/" (System/currentTimeMillis) ".png")))))
+(defmethod handle-flavor DataFlavor/javaFileListFlavor [clip]
+  (let [data (.getData clip DataFlavor/javaFileListFlavor)]
+    (doseq [d data]
+      (println (type d)))))
 
-(defn set-interval [interval callback]
-  (future
-    (while true
-      (try
-        (Thread/sleep interval)
-        (callback)
-        (catch Exception e (.printStackTrace e))))))
+(defrecord ClipboardData [^DataFlavor flavor length contents])
+
+(def clip-data (atom nil))
+
+(defn get-clip-data [clip]
+  (let [flavor (best-fit-flavor clip)
+        data (.getData clip flavor)]
+    (condp = flavor
+      DataFlavor/stringFlavor
+      (->ClipboardData flavor (count data) (util/md5 data))
+
+      DataFlavor/imageFlavor
+      (->ClipboardData flavor (count (util/image->bytes (util/buffered-image data))) (util/md5 data))
+
+      DataFlavor/javaFileListFlavor
+      (->ClipboardData flavor (count data) (util/md5 data)))))
+
+(defn clip-data-changed? [new-clip-data]
+  (or (not= (:flavor @clip-data) (:flavor new-clip-data))
+      (not= (:length @clip-data) (:length new-clip-data))
+      (not= (:contents @clip-data) (:contents new-clip-data))))
 
 (defn -main [& _]
-  (set-interval 2000 #(handle-flavor clip))
+  (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))]
+    (util/set-interval 2000 (fn []
+                              (let [new-clip-data (get-clip-data clip)]
+                                (when (clip-data-changed? new-clip-data)
+                                  (reset! clip-data new-clip-data)
+                                  (handle-flavor clip))))))
+
   (Thread/sleep 1000000))
