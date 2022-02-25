@@ -2,12 +2,11 @@
   (:require [clojure.java.io :as jio]
             [lan-clip.util :as util])
   (:import (java.awt Toolkit)
-           (java.awt.datatransfer DataFlavor ClipboardOwner Clipboard)
-           (javax.imageio ImageIO)
-           (org.apache.commons.codec.digest DigestUtils)))
+           (java.awt.datatransfer DataFlavor ClipboardOwner Clipboard Transferable)
+           (javax.imageio ImageIO)))
 
-(defn- set-owner [clpbd owner]
-  (.setContents clpbd (.getContents clpbd nil) owner))
+(defn- set-owner [clip owner]
+  (.setContents clip (.getContents clip nil) owner))
 
 (defrecord Owner
   []
@@ -66,6 +65,16 @@
   (or (not= (:flavor @clip-data) (:flavor new-clip-data))
       (not= (:length @clip-data) (:length new-clip-data))
       (not= (:contents @clip-data) (:contents new-clip-data))))
+
+(defrecord ImageTransferable [img]
+  Transferable
+  (getTransferDataFlavors [_]
+    (into-array [DataFlavor/imageFlavor]))
+  (isDataFlavorSupported [_ flavor]
+    (= flavor DataFlavor/imageFlavor))
+  (getTransferData [_ _]
+    img)
+  )
 
 (defn -main [& _]
   (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))]
