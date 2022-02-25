@@ -62,9 +62,7 @@
       (->ClipboardData flavor (count data) (util/md5 data)))))
 
 (defn clip-data-changed? [new-clip-data]
-  (or (not= (:flavor @clip-data) (:flavor new-clip-data))
-      (not= (:length @clip-data) (:length new-clip-data))
-      (not= (:contents @clip-data) (:contents new-clip-data))))
+  (not= @clip-data new-clip-data))
 
 (defrecord ImageTransferable [img]
   Transferable
