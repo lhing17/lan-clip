@@ -1,10 +1,11 @@
 (ns lan-clip.core
   (:require [clojure.java.io :as jio])
-  (:import (java.awt Toolkit Image)
+  (:import (java.awt Toolkit Image Color)
            (java.awt.datatransfer DataFlavor ClipboardOwner Clipboard)
            (javax.imageio ImageIO)
            (java.io File)
-           (java.awt.image RenderedImage BufferedImage)))
+           (java.awt.image RenderedImage BufferedImage ImageObserver)
+           (java.util.concurrent.locks ReentrantLock Condition)))
 
 (def clip (.getSystemClipboard (Toolkit/getDefaultToolkit)))
 
@@ -25,45 +26,55 @@
 (defn- print-string-on-clipboard [clip]
   (println (.getData clip DataFlavor/stringFlavor)))
 
+(defn- ^ImageObserver image-observer [^ReentrantLock lock ^Condition size? ^Condition data?]
+  (proxy [ImageObserver]
+         []
+    (imageUpdate [_ info-flags _ _ _ _]
+      (.lock lock)
+      (try
+        (cond (not= 0 (bit-and info-flags ImageObserver/ALLBITS))
+              (do
+                (.signal size?)
+                (.signal data?)
+                false)
+
+              (not= 0 (bit-and info-flags (bit-or ImageObserver/WIDTH ImageObserver/HEIGHT)))
+              (do
+                (.signal size?)
+                true)
+
+              :else
+              true)
+        (finally
+          (.unlock lock))))))
+
 (defn- ^BufferedImage buffered-image [^Image image]
   (if (instance? BufferedImage image)
     image
-    ))
-
-;public static BufferedImage getImage(Image image) {
-;                                                   if(image instanceof BufferedImage) return (BufferedImage)image;
-;                                                     Lock lock = new ReentrantLock();
-;                                                     Condition size = lock.newCondition(), data = lock.newCondition();
-;                                                   ImageObserver o = (img, infoflags, x, y, width, height) -> {
-;         lock.lock();
-;         try {
-;              if((infoflags&ImageObserver.ALLBITS)!=0) {
-;                                                        size.signal();
-;                                                        data.signal();
-;                                                        return false;
-;                                                        }
-;                if((infoflags&(ImageObserver.WIDTH|ImageObserver.HEIGHT))!=0)
-;                size.signal();
-;                return true;
-;              }
-;         finally { lock.unlock(); }
-;                  };(do
-;         BufferedImage bi;
-;         lock.lock();
-;         try {
-;              int width, height=0;
-;                  while( (width=image.getWidth(o))<0 || (height=image.getHeight(o))<0 )
-;                  size.awaitUninterruptibly();
-;                  bi = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-;              Graphics2D g = bi.createGraphics();
-;              try {
-;                   g.setBackground(new Color(0, true));
-;                   g.clearRect(0, 0, width, height);
-;                   while(!g.drawImage(image, 0, 0, o)) data.awaitUninterruptibly();
-;                   } finally { g.dispose(); }
-;                              } finally { lock.unlock(); }
-;                                         return bi;
-;                                         }
+    (let [lock (ReentrantLock.)
+          size? (.newCondition lock)
+          data? (.newCondition lock)
+          o (image-observer lock size? data?)
+          width (atom (.getWidth image o))
+          height (atom (.getHeight image o))]
+      (.lock lock)
+      (try (while (or (< @width 0) (< @height 0))
+             (.awaitUninterruptibly size?)
+             (reset! width (.getWidth image o))
+             (reset! height (.getHeight image o)))
+           (let [bi (BufferedImage. @width @height BufferedImage/TYPE_INT_ARGB)
+                 g (.createGraphics bi)]
+             (try
+               (doto g
+                 (.setBackground (Color. 0 true))
+                 (.clearRect 0 0 @width @height))
+               (while (not (.drawImage g image 0 0 o))
+                 (.awaitUninterruptibly data?))
+               (finally
+                 (.dispose g)))
+             bi)
+           (finally
+             (.unlock lock))))))
 
 (defmulti handle-flavor (fn [^Clipboard clip]
                           (first (filter #(.isDataFlavorAvailable clip %) [DataFlavor/imageFlavor
@@ -76,7 +87,7 @@
 (defmethod handle-flavor DataFlavor/imageFlavor [clip]
   (let [data (.getData clip DataFlavor/imageFlavor)]
 
-    (ImageIO/write ^RenderedImage data "png" ^File (jio/file (str "/Users/lianghao/Documents/" (System/currentTimeMillis) "/.png")))))
+    (ImageIO/write ^RenderedImage (buffered-image data) "png" ^File (jio/file (str "D:/" (System/currentTimeMillis) ".png")))))
 
 (defn set-interval [interval callback]
   (future
