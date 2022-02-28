@@ -61,6 +61,4 @@
         (finally
           (.shutdownGracefully worker-group))))))
 
-(defn -main [& args]
-  (run (->Client "localhost" 9002 (ImageIO/read (jio/file "D:/a.png")))))
 

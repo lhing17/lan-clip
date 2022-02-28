@@ -1,11 +1,11 @@
 (ns lan-clip.core
+  (:gen-class)
   (:require [clojure.java.io :as jio]
             [lan-clip.util :as util]
             [lan-clip.socket.client :as client]
             [lan-clip.socket.server :as server])
   (:import (java.awt Toolkit)
-           (java.awt.datatransfer DataFlavor ClipboardOwner Clipboard Transferable)
-           (javax.imageio ImageIO)))
+           (java.awt.datatransfer DataFlavor ClipboardOwner Clipboard)))
 
 (defn- set-owner [clip owner]
   (.setContents clip (.getContents clip nil) owner))

@@ -66,6 +66,3 @@
           (-> f (.channel) (.closeFuture) (.sync)))
         (finally (.shutdownGracefully boss-group)
                  (.shutdownGracefully worker-group))))))
-
-(defn -main [& args]
-  (.run (->Server (int 9002))))
