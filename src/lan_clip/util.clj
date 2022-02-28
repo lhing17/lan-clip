@@ -6,7 +6,8 @@
            (java.util.concurrent.locks ReentrantLock Condition)
            (java.io ByteArrayOutputStream File InputStream ByteArrayInputStream)
            (javax.imageio ImageIO)
-           (clojure.lang Seqable)))
+           (clojure.lang Seqable)
+           (java.awt.datatransfer Transferable DataFlavor)))
 
 (defn set-interval [interval callback]
   (future
@@ -101,3 +102,14 @@
 
   Object
   (md5 [this] (md5 (str this))))
+
+;; 将图片设置到剪贴板的类型
+(defrecord ImageTransferable [img]
+  Transferable
+  (getTransferDataFlavors [_]
+    (into-array [DataFlavor/imageFlavor]))
+  (isDataFlavorSupported [_ flavor]
+    (= flavor DataFlavor/imageFlavor))
+  (getTransferData [_ _]
+    img)
+  )

@@ -29,13 +29,13 @@
 
 (defmethod handle-flavor DataFlavor/stringFlavor [clip]
   (let [data (.getData clip DataFlavor/stringFlavor)
-        clnt (client/->Client "localhost" 9002 data)]
+        clnt (client/->Client "172.20.10.250" 9002 data)]
     (future (client/run clnt))
     ))
 
 (defmethod handle-flavor DataFlavor/imageFlavor [clip]
   (let [data (.getData clip DataFlavor/imageFlavor)
-        clnt (client/->Client "localhost" 9002 data)]
+        clnt (client/->Client "172.20.10.250" 9002 data)]
     (client/run clnt)))
 
 (defmethod handle-flavor DataFlavor/javaFileListFlavor [clip]
@@ -65,15 +65,7 @@
       (not= (:length @clip-data) (:length new-clip-data))
       (not= (:contents @clip-data) (:contents new-clip-data))))
 
-(defrecord ImageTransferable [img]
-  Transferable
-  (getTransferDataFlavors [_]
-    (into-array [DataFlavor/imageFlavor]))
-  (isDataFlavorSupported [_ flavor]
-    (= flavor DataFlavor/imageFlavor))
-  (getTransferData [_ _]
-    img)
-  )
+
 
 (defn -main [& _]
   (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))]

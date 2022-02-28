@@ -7,10 +7,11 @@
            (io.netty.channel ChannelInitializer ChannelOption ChannelFuture ChannelInboundHandlerAdapter ChannelHandler)
            (io.netty.channel.socket SocketChannel)
            (io.netty.util ReferenceCountUtil)
-           (java.awt Image)
+           (java.awt Image Toolkit)
            (javax.imageio ImageIO)
            (io.netty.buffer ByteBuf)
-           (io.netty.handler.codec.serialization ObjectDecoder ClassResolvers)))
+           (io.netty.handler.codec.serialization ObjectDecoder ClassResolvers)
+           (java.awt.datatransfer StringSelection)))
 
 (defprotocol RunnableServer
   (run [this]))
@@ -18,13 +19,12 @@
 (defmulti handle-msg #(.-type %))
 
 (defmethod handle-msg String [msg]
-  (println (.-content msg))
-  (flush))
+  (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))]
+    (.setContents clip (StringSelection. (.-content msg)) nil)))
 
 (defmethod handle-msg Image [msg]
-  (ImageIO/write (util/bytes->image (.-content msg))
-                 "png"
-                 (jio/file (str "D:/" (System/currentTimeMillis) ".png"))))
+  (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))]
+    (.setContents clip (util/->ImageTransferable (util/bytes->image (.-content msg))) nil)))
 
 (defmethod handle-msg ByteBuf [msg]
   (while (.isReadable msg)
