@@ -53,7 +53,7 @@
              (.awaitUninterruptibly size?)
              (reset! width (.getWidth image o))
              (reset! height (.getHeight image o)))
-           (let [bi (BufferedImage. @width @height BufferedImage/TYPE_INT_ARGB)
+           (let [bi (BufferedImage. @width @height BufferedImage/TYPE_INT_RGB)
                  g (.createGraphics bi)]
              (try
                (doto g
@@ -69,7 +69,7 @@
 
 (defn image->bytes [^BufferedImage buf-img]
   (let [bos (ByteArrayOutputStream.)]
-    (ImageIO/write buf-img "jpg" bos)
+    (ImageIO/write buf-img "png" bos)
     (.toByteArray bos)))
 
 (defn ^BufferedImage bytes->image [^bytes bs]

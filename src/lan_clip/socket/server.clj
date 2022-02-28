@@ -22,6 +22,7 @@
 
 (defmethod handle-msg Image [msg]
   (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))]
+    (println (count (.-content msg)) (type (util/bytes->image (.-content msg))))
     (.setContents clip (util/->ImageTransferable (util/bytes->image (.-content msg))) nil)))
 
 (defmethod handle-msg ByteBuf [msg]

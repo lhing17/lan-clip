@@ -26,7 +26,10 @@
     []
     (channelActive [ctx]
       (let [msg (->msg content)]
-        (println msg)
+        (println (type content)
+                 (if (instance? String content)
+                   content
+                   "Image"))
         (.writeAndFlush ctx msg)))
 
     (exceptionCaught [ctx cause]
