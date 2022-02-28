@@ -1,7 +1,8 @@
 (ns lan-clip.core
   (:require [clojure.java.io :as jio]
             [lan-clip.util :as util]
-            [lan-clip.socket.client :as client])
+            [lan-clip.socket.client :as client]
+            [lan-clip.socket.server :as server])
   (:import (java.awt Toolkit)
            (java.awt.datatransfer DataFlavor ClipboardOwner Clipboard Transferable)
            (javax.imageio ImageIO)))
@@ -75,4 +76,4 @@
                                   (reset! clip-data new-clip-data)
                                   (handle-flavor clip))))))
 
-  (Thread/sleep 1000000))
+  (.run (server/->Server (int 9002))))

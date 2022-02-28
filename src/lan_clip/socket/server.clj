@@ -1,6 +1,5 @@
 (ns lan-clip.socket.server
-  (:require [lan-clip.util :as util]
-            [clojure.java.io :as jio])
+  (:require [lan-clip.util :as util])
   (:import (io.netty.channel.nio NioEventLoopGroup)
            (io.netty.bootstrap ServerBootstrap)
            (io.netty.channel.socket.nio NioServerSocketChannel)
@@ -8,7 +7,6 @@
            (io.netty.channel.socket SocketChannel)
            (io.netty.util ReferenceCountUtil)
            (java.awt Image Toolkit)
-           (javax.imageio ImageIO)
            (io.netty.buffer ByteBuf)
            (io.netty.handler.codec.serialization ObjectDecoder ClassResolvers)
            (java.awt.datatransfer StringSelection)))
