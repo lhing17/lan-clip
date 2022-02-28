@@ -1,0 +1,73 @@
+(ns lan-clip.socket.server
+  (:require [lan-clip.util :as util]
+            [clojure.java.io :as jio])
+  (:import (io.netty.channel.nio NioEventLoopGroup)
+           (io.netty.bootstrap ServerBootstrap)
+           (io.netty.channel.socket.nio NioServerSocketChannel)
+           (io.netty.channel ChannelInitializer ChannelOption ChannelFuture ChannelInboundHandlerAdapter ChannelHandler)
+           (io.netty.channel.socket SocketChannel)
+           (io.netty.util ReferenceCountUtil)
+           (java.awt Image)
+           (javax.imageio ImageIO)
+           (io.netty.buffer ByteBuf)
+           (io.netty.handler.codec.serialization ObjectDecoder ClassResolvers)))
+
+(defprotocol RunnableServer
+  (run [this]))
+
+(defmulti handle-msg #(.-type %))
+
+(defmethod handle-msg String [msg]
+  (println (.-content msg))
+  (flush))
+
+(defmethod handle-msg Image [msg]
+  (ImageIO/write (util/bytes->image (.-content msg))
+                 "png"
+                 (jio/file (str "D:/" (System/currentTimeMillis) ".png"))))
+
+(defmethod handle-msg ByteBuf [msg]
+  (while (.isReadable msg)
+    (print (char (.readByte msg)))
+    (flush)))
+
+(defn- ->handler []
+  (proxy [ChannelInboundHandlerAdapter]
+         []
+    (channelRead [ctx msg]
+      (try
+        (handle-msg msg)
+        (finally
+          (ReferenceCountUtil/release msg)
+          (.close ctx))))
+    (exceptionCaught [ctx cause]
+      (.printStackTrace cause)
+      (.close ctx)))
+  )
+
+(defrecord Server [port]
+  RunnableServer
+  (run [this]
+    (let [boss-group (NioEventLoopGroup.)
+          worker-group (NioEventLoopGroup.)
+          b (ServerBootstrap.)]
+      (try
+        (let [^ChannelFuture f
+              (-> b
+                  (.group boss-group worker-group)
+                  (.channel NioServerSocketChannel)
+                  (.childHandler (proxy [ChannelInitializer]
+                                        []
+                                   (initChannel [^SocketChannel ch]
+                                     (.. ch (pipeline) (addLast (into-array ChannelHandler
+                                                                            [(ObjectDecoder. Integer/MAX_VALUE (ClassResolvers/weakCachingConcurrentResolver nil))
+                                                                             (->handler)]))))))
+                  (.option ChannelOption/SO_BACKLOG (int 1024))
+                  (.bind port)
+                  (.sync))]
+          (-> f (.channel) (.closeFuture) (.sync)))
+        (finally (.shutdownGracefully boss-group)
+                 (.shutdownGracefully worker-group))))))
+
+(defn -main [& args]
+  (.run (->Server (int 9002))))

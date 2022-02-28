@@ -1,6 +1,7 @@
 (ns lan-clip.core
   (:require [clojure.java.io :as jio]
-            [lan-clip.util :as util])
+            [lan-clip.util :as util]
+            [lan-clip.socket.client :as client])
   (:import (java.awt Toolkit)
            (java.awt.datatransfer DataFlavor ClipboardOwner Clipboard Transferable)
            (javax.imageio ImageIO)))
@@ -18,9 +19,6 @@
       (println (.getData clipboard DataFlavor/stringFlavor))
       (set-owner clipboard this))))
 
-(defn- print-string-on-clipboard [clip]
-  (println (.getData clip DataFlavor/stringFlavor)))
-
 (defn- best-fit-flavor [^Clipboard clip]
   (first (filter #(.isDataFlavorAvailable clip %)
                  [DataFlavor/javaFileListFlavor
@@ -30,14 +28,15 @@
 (defmulti handle-flavor best-fit-flavor)
 
 (defmethod handle-flavor DataFlavor/stringFlavor [clip]
-  (print-string-on-clipboard clip))
+  (let [data (.getData clip DataFlavor/stringFlavor)
+        clnt (client/->Client "localhost" 9002 data)]
+    (future (client/run clnt))
+    ))
 
 (defmethod handle-flavor DataFlavor/imageFlavor [clip]
-  (let [data (.getData clip DataFlavor/imageFlavor)]
-    (println data)
-    (ImageIO/write (util/buffered-image data)
-                   "png"
-                   (jio/file (str "D:/" (System/currentTimeMillis) ".png")))))
+  (let [data (.getData clip DataFlavor/imageFlavor)
+        clnt (client/->Client "localhost" 9002 data)]
+    (client/run clnt)))
 
 (defmethod handle-flavor DataFlavor/javaFileListFlavor [clip]
   (let [data (.getData clip DataFlavor/javaFileListFlavor)]
@@ -62,7 +61,9 @@
       (->ClipboardData flavor (count data) (util/md5 data)))))
 
 (defn clip-data-changed? [new-clip-data]
-  (not= @clip-data new-clip-data))
+  (or (not= (:flavor @clip-data) (:flavor new-clip-data))
+      (not= (:length @clip-data) (:length new-clip-data))
+      (not= (:contents @clip-data) (:contents new-clip-data))))
 
 (defrecord ImageTransferable [img]
   Transferable

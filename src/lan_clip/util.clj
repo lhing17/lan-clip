@@ -4,7 +4,7 @@
            (java.awt Image Color)
            (java.awt.image BufferedImage ImageObserver)
            (java.util.concurrent.locks ReentrantLock Condition)
-           (java.io ByteArrayOutputStream File InputStream)
+           (java.io ByteArrayOutputStream File InputStream ByteArrayInputStream)
            (javax.imageio ImageIO)
            (clojure.lang Seqable)))
 
@@ -70,6 +70,9 @@
   (let [bos (ByteArrayOutputStream.)]
     (ImageIO/write buf-img "jpg" bos)
     (.toByteArray bos)))
+
+(defn ^BufferedImage bytes->image [^bytes bs]
+  (ImageIO/read (ByteArrayInputStream. bs)))
 
 (defprotocol Digestable
   (md5 [this]))
