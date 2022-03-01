@@ -29,7 +29,9 @@
         (println (type content)
                  (if (instance? String content)
                    content
-                   "Image"))
+                   "Image")
+                 (type (.-content msg))
+                 (count (.-content msg)))
         (.writeAndFlush ctx msg)))
 
     (exceptionCaught [ctx cause]

@@ -1,10 +1,11 @@
 (ns lan-clip.util
-  (:require [clojure.java.io :as jio])
+  (:require [clojure.java.io :as jio]
+            [clojure.edn :as edn])
   (:import (org.apache.commons.codec.digest DigestUtils)
            (java.awt Image Color)
            (java.awt.image BufferedImage ImageObserver)
            (java.util.concurrent.locks ReentrantLock Condition)
-           (java.io ByteArrayOutputStream File InputStream ByteArrayInputStream)
+           (java.io ByteArrayOutputStream File InputStream ByteArrayInputStream PushbackReader)
            (javax.imageio ImageIO)
            (clojure.lang Seqable)
            (java.awt.datatransfer Transferable DataFlavor)))
@@ -111,5 +112,11 @@
   (isDataFlavorSupported [_ flavor]
     (= flavor DataFlavor/imageFlavor))
   (getTransferData [_ _]
-    img)
-  )
+    img))
+
+(defn read-edn [f]
+  (with-open [in-edn (-> f
+                         jio/resource
+                         jio/reader
+                         (PushbackReader.))]
+    (edn/read in-edn)))

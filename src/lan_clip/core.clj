@@ -20,7 +20,7 @@
       (println (.getData clipboard DataFlavor/stringFlavor))
       (set-owner clipboard this))))
 
-(defn- best-fit-flavor [^Clipboard clip]
+(defn- best-fit-flavor [^Clipboard clip _]
   (first (filter #(.isDataFlavorAvailable clip %)
                  [DataFlavor/javaFileListFlavor
                   DataFlavor/imageFlavor
@@ -28,18 +28,18 @@
 
 (defmulti handle-flavor best-fit-flavor)
 
-(defmethod handle-flavor DataFlavor/stringFlavor [clip]
+(defmethod handle-flavor DataFlavor/stringFlavor [clip conf]
   (let [data (.getData clip DataFlavor/stringFlavor)
-        clnt (client/->Client "172.20.10.250" 9002 data)]
+        clnt (client/->Client (:target-host conf) (:target-port conf) data)]
     (future (client/run clnt))
     ))
 
-(defmethod handle-flavor DataFlavor/imageFlavor [clip]
+(defmethod handle-flavor DataFlavor/imageFlavor [clip conf]
   (let [data (.getData clip DataFlavor/imageFlavor)
-        clnt (client/->Client "172.20.10.250" 9002 data)]
+        clnt (client/->Client (:target-host conf) (:target-port conf) data)]
     (client/run clnt)))
 
-(defmethod handle-flavor DataFlavor/javaFileListFlavor [clip]
+(defmethod handle-flavor DataFlavor/javaFileListFlavor [clip _]
   (let [data (.getData clip DataFlavor/javaFileListFlavor)]
     (doseq [d data]
       (println (type d)))))
@@ -48,8 +48,8 @@
 
 (def clip-data (atom nil))
 
-(defn get-clip-data [clip]
-  (let [flavor (best-fit-flavor clip)
+(defn get-clip-data [clip conf]
+  (let [flavor (best-fit-flavor clip conf)
         data (.getData clip flavor)]
     (condp = flavor
       DataFlavor/stringFlavor
@@ -69,11 +69,14 @@
 
 
 (defn -main [& _]
-  (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))]
+  (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))
+        conf (util/read-edn "config.edn")
+        merged-conf (merge {:port 9002 :target-host "localhost" :target-port 9002}
+                           conf)]
+    (println merged-conf)
     (util/set-interval 2000 (fn []
-                              (let [new-clip-data (get-clip-data clip)]
+                              (let [new-clip-data (get-clip-data clip merged-conf)]
                                 (when (clip-data-changed? new-clip-data)
                                   (reset! clip-data new-clip-data)
-                                  (handle-flavor clip))))))
-
-  (.run (server/->Server (int 9002))))
+                                  (handle-flavor clip merged-conf)))))
+    (.run (server/->Server (int (:port merged-conf))))))
