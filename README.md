@@ -67,6 +67,10 @@ lein uberjar
 可以使用jdk14以上版本所带的jpackage将jar包打成可执行文件，mac系统上为dmg，windows系统上为exe。
 在Windows系统上进行打包时，依赖于Wix工具。
 
+```shell
+jpackage --type dmg -i target -n LanClip --main-class lan_clip.core --main-jar lan-clip-0.1.0-SNAPSHOT-standalone.jar
+```
+
 ## 支持项目/贡献代码
 
 欢迎Star。
