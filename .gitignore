@@ -13,3 +13,5 @@ pom.xml.asc
 .idea/
 target/
 *.iml
+*.dmg
+*.exe

@@ -44,6 +44,8 @@ JDK中使用Clipboard这个类来映射操作系统中的剪贴板，剪贴板�
 ```shell
 java -jar XXX.jar
 ```
+正式版发布后，会提供各个系统的native package。
+
 命令进行启动。注意修改配置文件，确定好本机器使用的端口，以及目标机器的ip和端口。
 
 ## 如何开发？
@@ -61,6 +63,9 @@ java -jar XXX.jar
 ```shell
 lein uberjar
 ```
+
+可以使用jdk14以上版本所带的jpackage将jar包打成可执行文件，mac系统上为dmg，windows系统上为exe。
+在Windows系统上进行打包时，依赖于Wix工具。
 
 ## 支持项目/贡献代码
 

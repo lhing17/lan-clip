@@ -68,15 +68,21 @@
 
 
 
-(defn -main [& _]
+(defn lan-clip []
   (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))
         conf (util/read-edn "config.edn")
         merged-conf (merge {:port 9002 :target-host "localhost" :target-port 9002}
                            conf)]
     (println merged-conf)
-    (util/set-interval 2000 (fn []
+
+    ;; 默认每隔2秒钟访问剪切版的内容，可以通过:interval进行配置
+    (util/set-interval (:interval merged-conf 2000) (fn []
                               (let [new-clip-data (get-clip-data clip merged-conf)]
                                 (when (clip-data-changed? new-clip-data)
                                   (reset! clip-data new-clip-data)
                                   (handle-flavor clip merged-conf)))))
     (.run (server/->Server (int (:port merged-conf))))))
+
+
+(defn -main [& _]
+  (lan-clip))
