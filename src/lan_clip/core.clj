@@ -31,8 +31,7 @@
 (defmethod handle-flavor DataFlavor/stringFlavor [clip conf]
   (let [data (.getData clip DataFlavor/stringFlavor)
         clnt (client/->Client (:target-host conf) (:target-port conf) data)]
-    (future (client/run clnt))
-    ))
+    (future (client/run clnt))))
 
 (defmethod handle-flavor DataFlavor/imageFlavor [clip conf]
   (let [data (.getData clip DataFlavor/imageFlavor)
@@ -65,6 +64,19 @@
   (or (not= (:flavor @clip-data) (:flavor new-clip-data))
       (not= (:length @clip-data) (:length new-clip-data))
       (not= (:contents @clip-data) (:contents new-clip-data))))
+
+(comment
+  (defonce clip (.getSystemClipboard (Toolkit/getDefaultToolkit)))
+  (defonce conf (util/read-edn "config.edn"))
+  (def merge-conf (merge {:port 9002 :target-host "localhost" :target-port 9002} conf))
+  (best-fit-flavor clip merge-conf)
+  (get-clip-data clip merge-conf)
+  @clip-data
+  (clip-data-changed? (get-clip-data clip merge-conf))
+  (reset! clip-data (get-clip-data clip merge-conf))
+  (handle-flavor clip merge-conf)
+  
+  ,)
 
 
 
