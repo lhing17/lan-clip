@@ -20,7 +20,9 @@
       (println (.getData clipboard DataFlavor/stringFlavor))
       (set-owner clipboard this))))
 
-(defn- best-fit-flavor [^Clipboard clip _]
+(defn- best-fit-flavor
+  "获取最适合当前剪贴板内容的flavor，根据测试结果，选择了文件列表>图像>字符串，这样可以使MacOS和Windows上的表现一致。"
+  [^Clipboard clip _]
   (first (filter #(.isDataFlavorAvailable clip %)
                  [DataFlavor/javaFileListFlavor
                   DataFlavor/imageFlavor
@@ -39,13 +41,18 @@
     (client/run clnt)))
 
 (defmethod handle-flavor DataFlavor/javaFileListFlavor [clip _]
-  (let [data (.getData clip DataFlavor/javaFileListFlavor)]
-    (doseq [d data]
-      (println (type d)))))
+  (let [data (.getData clip DataFlavor/javaFileListFlavor)
+        total-size  (-> (map #(.length ^java.io.File %) data)
+                        (#(apply + %))
+                        (quot 1024))]
+    ;; TODO 如果文件总大小小于2M，默认直接传送到目标机器的临时文件夹，并设置到目标机器的剪贴板 
+    ))
 
 (defrecord ClipboardData [^DataFlavor flavor length contents])
 
-(def clip-data (atom nil))
+(def clip-data
+  "临时存储每次复制后剪切版上的信息，如果非空，为`ClipboardData`类型的对象"
+  (atom nil))
 
 (defn get-clip-data [clip conf]
   (let [flavor (best-fit-flavor clip conf)
@@ -60,7 +67,9 @@
       DataFlavor/javaFileListFlavor
       (->ClipboardData flavor (count data) (util/md5 data)))))
 
-(defn clip-data-changed? [new-clip-data]
+(defn clip-data-changed?
+  "判断剪贴板上的内容是否发生变化，包括类型、长度和内容（md5）"
+  [new-clip-data]
   (or (not= (:flavor @clip-data) (:flavor new-clip-data))
       (not= (:length @clip-data) (:length new-clip-data))
       (not= (:contents @clip-data) (:contents new-clip-data))))

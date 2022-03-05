@@ -6,7 +6,9 @@
   :dependencies [[org.clojure/clojure "1.10.3"]
                  [io.netty/netty-all "4.1.74.Final"]
                  [commons-codec "1.15"]
-                 [clj-commons/pomegranate "1.2.0"]]
+                 [clj-commons/pomegranate "1.2.0"]
+                 [seesaw "1.5.0"]
+                 [com.formdev/flatlaf "2.0.1"]]
 
   :prep-tasks [["compile" "lan-clip.socket.content"] "javac" "compile"]
   :jvm-opts ["-server"]
@@ -19,3 +21,14 @@
   :pedantic? false
 
   :repl-options {:init-ns lan-clip.core})
+
+
+(comment
+  (use '[cemerick.pomegranate :only (add-dependencies)])
+  (add-dependencies :coordinates '[[seesaw "1.5.0"]
+                                   [com.formdev/flatlaf "2.0.1"]]
+                    :repositories (merge cemerick.pomegranate.aether/maven-central
+                        {"clojars" "https://clojars.org/repo"}
+                        ;;{"clojars" "https://mirrors.tuna.tsinghua.edu.cn/clojars"}
+                        ))
+  ,)
