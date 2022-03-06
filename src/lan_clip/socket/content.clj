@@ -2,4 +2,7 @@
   (:import (java.io Serializable)))
 
 (deftype Content [type content]
-  Serializable)
+  Serializable
+  Object
+  (toString [this]
+    (str "type=" type ",content=" content)))

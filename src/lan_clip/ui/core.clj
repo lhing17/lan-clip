@@ -5,6 +5,13 @@
   (:import java.awt.Toolkit
            (com.formdev.flatlaf FlatLightLaf)))
 
+(def fr (-> (frame :title "HI!"
+                   :content "I'm a label!"
+                   :width 400
+                   :height 300)
+            ;;pack!
+            show!))
+
 (def init-panel-items [["实体类名" "gap 10"]
                        [(text :columns 10 :class :bean) "span, growx, wrap"]
                        ["生成文件" "gap 10"]
@@ -42,12 +49,7 @@
     (-> fr (config! :content (frame-content)) pack! locate-to-center! show!)
     ))
 
-(def fr (-> (frame :title "HI!"
-                   :content "I'm a label!"
-                   :width 400
-                   :height 300)
-            ;;pack!
-            show!))
+
 
 (comment
   (-main)

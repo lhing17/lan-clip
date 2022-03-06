@@ -38,15 +38,18 @@
 (defmethod handle-flavor DataFlavor/imageFlavor [clip conf]
   (let [data (.getData clip DataFlavor/imageFlavor)
         clnt (client/->Client (:target-host conf) (:target-port conf) data)]
-    (client/run clnt)))
+    (future (client/run clnt))))
 
-(defmethod handle-flavor DataFlavor/javaFileListFlavor [clip _]
+(defmethod handle-flavor DataFlavor/javaFileListFlavor [clip conf]
   (let [data (.getData clip DataFlavor/javaFileListFlavor)
         total-size  (-> (map #(.length ^java.io.File %) data)
                         (#(apply + %))
-                        (quot 1024))]
-    ;; TODO 如果文件总大小小于2M，默认直接传送到目标机器的临时文件夹，并设置到目标机器的剪贴板 
-    ))
+                        (quot 1024))
+        clnt (client/->Client (:target-host conf) (:target-port conf) data)]
+    ;; TODO 如果文件总大小小于2M，默认直接传送到目标机器的临时文件夹，并设置到目标机器的剪贴板
+    (if (< total-size 2048)
+      (future (client/run clnt))
+      (println "文件太大，文件大小为" total-size "K"))))
 
 (defrecord ClipboardData [^DataFlavor flavor length contents])
 
@@ -76,7 +79,7 @@
 
 (comment
   (defonce clip (.getSystemClipboard (Toolkit/getDefaultToolkit)))
-  (defonce conf (util/read-edn "config.edn"))
+  (def conf (util/read-edn "config.edn"))
   (def merge-conf (merge {:port 9002 :target-host "localhost" :target-port 9002} conf))
   (best-fit-flavor clip merge-conf)
   (get-clip-data clip merge-conf)
@@ -84,6 +87,7 @@
   (clip-data-changed? (get-clip-data clip merge-conf))
   (reset! clip-data (get-clip-data clip merge-conf))
   (handle-flavor clip merge-conf)
+  (handle-flavor clip {:port 9002 :target-host "localhost" :target-port 9002})
   
   ,)
 
@@ -98,12 +102,16 @@
 
     ;; 默认每隔2秒钟访问剪切版的内容，可以通过:interval进行配置
     (util/set-interval (:interval merged-conf 2000) (fn []
-                              (let [new-clip-data (get-clip-data clip merged-conf)]
-                                (when (clip-data-changed? new-clip-data)
-                                  (reset! clip-data new-clip-data)
-                                  (handle-flavor clip merged-conf)))))
-    (.run (server/->Server (int (:port merged-conf))))))
+                                                      (let [new-clip-data (get-clip-data clip merged-conf)]
+                                                        (when (clip-data-changed? new-clip-data)
+                                                          (reset! clip-data new-clip-data)
+                                                          (handle-flavor clip merged-conf)))))
+    (future (.run (server/->Server (int (:port merged-conf)))))
+    ))
 
 
 (defn -main [& _]
   (lan-clip))
+
+(comment
+  (-main))

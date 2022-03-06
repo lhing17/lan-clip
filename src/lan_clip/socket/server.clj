@@ -9,7 +9,8 @@
            (java.awt Image Toolkit)
            (io.netty.buffer ByteBuf)
            (io.netty.handler.codec.serialization ObjectDecoder ClassResolvers)
-           (java.awt.datatransfer StringSelection)))
+           (java.awt.datatransfer StringSelection)
+           (java.util List)))
 
 (defprotocol RunnableServer
   (run [this]))
@@ -30,19 +31,22 @@
     (print (char (.readByte msg)))
     (flush)))
 
+(defmethod handle-msg List [msg]
+  (println msg))
+
 (defn- ->handler []
   (proxy [ChannelInboundHandlerAdapter]
          []
     (channelRead [ctx msg]
       (try
+        (tap> msg)
         (handle-msg msg)
         (finally
           (ReferenceCountUtil/release msg)
           (.close ctx))))
     (exceptionCaught [ctx cause]
       (.printStackTrace cause)
-      (.close ctx)))
-  )
+      (.close ctx))))
 
 (defrecord Server [port]
   RunnableServer

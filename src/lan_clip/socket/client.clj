@@ -10,15 +10,22 @@
            (io.netty.channel.socket SocketChannel)
            (lan_clip.socket.content Content)
            (javax.imageio ImageIO)
-           (java.awt Image)))
+           (java.awt Image)
+           (java.util List)))
 
 (defprotocol RunnableClient
   (run [this]))
 
 (defn ->msg [content]
-  (if (instance? Image content)
-    (Content. (type content) (util/image->bytes (util/buffered-image content)))
-    (Content. (type content) content)))
+  (condp instance? content
+    Image (Content. (type content) (util/image->bytes (util/buffered-image content)))
+    String (Content. (type content) content)
+    List (Content. (type content) content)))
+
+(comment
+  (str (->msg "abc"))
+  (str (->msg (java.util.ArrayList.)))
+  ,)
 
 (defn content-handler [content]
   (proxy
