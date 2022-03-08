@@ -93,23 +93,25 @@
   
   ,)
 
-
-
-(defn lan-clip []
+(defn- listen-clipboard []
   (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))
         conf (util/read-edn "config.edn")
+        merged-conf (merge {:port 9002 :target-host "localhost" :target-port 9002} conf)]
+    (let [new-clip-data (get-clip-data clip merged-conf)]
+      (when (clip-data-changed? new-clip-data)
+        (reset! clip-data new-clip-data)
+        (handle-flavor clip merged-conf)))))
+
+(defn lan-clip []
+  (let [conf (util/read-edn "config.edn")
         merged-conf (merge {:port 9002 :target-host "localhost" :target-port 9002}
                            conf)]
-    (println merged-conf)
 
     ;; 默认每隔2秒钟访问剪切版的内容，可以通过:interval进行配置
-    (util/set-interval (:interval merged-conf 2000) (fn []
-                                                      (let [new-clip-data (get-clip-data clip merged-conf)]
-                                                        (when (clip-data-changed? new-clip-data)
-                                                          (reset! clip-data new-clip-data)
-                                                          (handle-flavor clip merged-conf)))))
-    (future (.run (server/->Server (int (:port merged-conf)))))
-    ))
+    (util/set-interval (:interval merged-conf 2000) #'listen-clipboard)
+
+    ;; 启动netty server，用于接收另一端传来的消息
+    (future (.run (server/->Server (int (:port merged-conf)))))))
 
 
 (defn -main [& _]

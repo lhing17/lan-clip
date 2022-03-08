@@ -10,7 +10,9 @@
            (clojure.lang Seqable)
            (java.awt.datatransfer Transferable DataFlavor)))
 
-(defn set-interval [interval callback]
+(defn set-interval
+  "每隔固定时间间隔做某个动作，类似于js中的setInterval"
+  [interval callback]
   (future
     (while true
       (try
@@ -18,7 +20,9 @@
         (callback)
         (catch Exception e (.printStackTrace e))))))
 
-(defn- ^ImageObserver image-observer [^ReentrantLock lock ^Condition size? ^Condition data?]
+(defn- ^ImageObserver image-observer
+  "构造ImageObserver，用于转换Image"
+  [^ReentrantLock lock ^Condition size? ^Condition data?]
   (proxy [ImageObserver]
          []
     (imageUpdate [_ info-flags _ _ _ _]
@@ -40,7 +44,9 @@
         (finally
           (.unlock lock))))))
 
-(defn ^BufferedImage buffered-image [^Image image]
+(defn ^BufferedImage buffered-image
+  "将java.util.Image转为BufferedImage"
+  [^Image image]
   (if (instance? BufferedImage image)
     image
     (let [lock (ReentrantLock.)
@@ -68,12 +74,16 @@
            (finally
              (.unlock lock))))))
 
-(defn image->bytes [^BufferedImage buf-img]
+(defn image->bytes
+  "将BufferedImage转为byte[]"
+  [^BufferedImage buf-img]
   (let [bos (ByteArrayOutputStream.)]
     (ImageIO/write buf-img "png" bos)
     (.toByteArray bos)))
 
-(defn ^BufferedImage bytes->image [^bytes bs]
+(defn ^BufferedImage bytes->image
+  "将byte[]转为BufferedImage"
+  [^bytes bs]
   (ImageIO/read (ByteArrayInputStream. bs)))
 
 (defprotocol Digestable
@@ -114,6 +124,7 @@
   (getTransferData [_ _]
     img))
 
+;; 将文件清单设置到剪贴板的类型
 (defrecord FileListTransferable [fs]
   Transferable
   (getTransferDataFlavors [_]
@@ -123,7 +134,9 @@
   (getTransferData [_ _]
     fs))
 
-(defn read-edn [f]
+(defn read-edn
+  "读取edn文件的配置"
+  [f]
   (with-open [in-edn (-> f
                          jio/resource
                          jio/reader

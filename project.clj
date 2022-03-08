@@ -8,7 +8,8 @@
                  [commons-codec "1.15"]
                  [clj-commons/pomegranate "1.2.0"]
                  [seesaw "1.5.0"]
-                 [com.formdev/flatlaf "2.0.1"]]
+                 [com.formdev/flatlaf "2.0.1"]
+                 [commons-io "2.11.0"]]
   :mirrors {"clojars" {:name "ustc"
                        :url "https://mirrors.tuna.tsinghua.edu.cn/clojars"}}
 
@@ -28,7 +29,8 @@
 (comment
   (use '[cemerick.pomegranate :only (add-dependencies)])
   (add-dependencies :coordinates '[[seesaw "1.5.0"]
-                                   [com.formdev/flatlaf "2.0.1"]]
+                                   [com.formdev/flatlaf "2.0.1"]
+                                   [commons-io "2.11.0"]]
                     :repositories (merge cemerick.pomegranate.aether/maven-central
                         {"clojars" "https://clojars.org/repo"}
                         ;;{"clojars" "https://mirrors.tuna.tsinghua.edu.cn/clojars"}

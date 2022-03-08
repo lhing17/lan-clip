@@ -1,17 +1,26 @@
 (ns lan-clip.socket.server
-  (:require [lan-clip.util :as util]
-            [clojure.java.io :as jio])
-  (:import (io.netty.channel.nio NioEventLoopGroup)
-           (io.netty.bootstrap ServerBootstrap)
-           (io.netty.channel.socket.nio NioServerSocketChannel)
-           (io.netty.channel ChannelInitializer ChannelOption ChannelFuture ChannelInboundHandlerAdapter ChannelHandler)
-           (io.netty.channel.socket SocketChannel)
-           (io.netty.util ReferenceCountUtil)
-           (java.awt Image Toolkit)
-           (io.netty.buffer ByteBuf)
-           (io.netty.handler.codec.serialization ObjectDecoder ClassResolvers)
-           (java.awt.datatransfer StringSelection)
-           (java.util List)))
+  (:require
+   [clojure.java.io :as jio]
+   [lan-clip.util :as util])
+  (:import
+   (io.netty.bootstrap ServerBootstrap)
+   (io.netty.buffer ByteBuf)
+   (io.netty.channel ChannelFuture ChannelHandler ChannelInboundHandlerAdapter ChannelInitializer ChannelOption)
+   (io.netty.channel.nio NioEventLoopGroup)
+   (io.netty.channel.socket SocketChannel)
+   (io.netty.channel.socket.nio NioServerSocketChannel)
+   (io.netty.handler.codec.serialization ClassResolvers ObjectDecoder)
+   (io.netty.util ReferenceCountUtil)
+   (java.awt Image Toolkit)
+   (java.awt.datatransfer StringSelection)
+   (java.util List)
+   (org.apache.commons.io FileUtils)))
+
+(def ^:private config (util/read-edn "config.edn" ))
+
+(comment
+  config
+  ,)
 
 (defprotocol RunnableServer
   (run [this]))
@@ -32,14 +41,14 @@
     (print (char (.readByte msg)))
     (flush)))
 
-
 (defmethod handle-msg List [msg]
   (let [fs (.-content msg)
-        tmp (jio/file "D:/tmp/")
+        tmp (jio/file (System/getProperty "user.dir") "tmp")
         v (transient [])
         clip (.getSystemClipboard (Toolkit/getDefaultToolkit))]
-    (when-not (.exists tmp)
-      (.mkdirs tmp))
+    (if-not (.exists tmp)
+      (.mkdirs tmp)
+      (FileUtils/cleanDirectory tmp))
     (doseq [f fs]
       (let [tmp-file (jio/file tmp (first f))]
         (jio/copy (second f) tmp-file)
