@@ -9,6 +9,8 @@
                  [clj-commons/pomegranate "1.2.0"]
                  [seesaw "1.5.0"]
                  [com.formdev/flatlaf "2.0.1"]]
+  :mirrors {"clojars" {:name "ustc"
+                       :url "https://mirrors.tuna.tsinghua.edu.cn/clojars"}}
 
   :prep-tasks [["compile" "lan-clip.socket.content"] "javac" "compile"]
   :jvm-opts ["-server"]
