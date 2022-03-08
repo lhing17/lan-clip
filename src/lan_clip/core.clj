@@ -88,6 +88,8 @@
   (reset! clip-data (get-clip-data clip merge-conf))
   (handle-flavor clip merge-conf)
   (handle-flavor clip {:port 9002 :target-host "localhost" :target-port 9002})
+  (def data (.getData clip DataFlavor/javaFileListFlavor))
+  (future (client/run (client/->Client "localhost" 9002 data)))
   
   ,)
 

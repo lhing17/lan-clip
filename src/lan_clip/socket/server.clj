@@ -1,5 +1,6 @@
 (ns lan-clip.socket.server
-  (:require [lan-clip.util :as util])
+  (:require [lan-clip.util :as util]
+            [clojure.java.io :as jio])
   (:import (io.netty.channel.nio NioEventLoopGroup)
            (io.netty.bootstrap ServerBootstrap)
            (io.netty.channel.socket.nio NioServerSocketChannel)
@@ -32,7 +33,12 @@
     (flush)))
 
 (defmethod handle-msg List [msg]
-  (println msg))
+  (let [fs (.-content msg)
+        tmp (jio/file "D:/tmp/")]
+    (when-not (.exists tmp)
+      (.mkdirs tmp))
+    (doseq [f fs]
+      (jio/copy (second f) (jio/file tmp (first f))))))
 
 (defn- ->handler []
   (proxy [ChannelInboundHandlerAdapter]

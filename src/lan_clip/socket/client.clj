@@ -16,34 +16,37 @@
 (defprotocol RunnableClient
   (run [this]))
 
+(defn file-content [files]
+  (for [f files]
+    [(.getName f) (.readAllBytes (jio/input-stream f))]))
+
 (defn ->msg [content]
   (condp instance? content
     Image (Content. (type content) (util/image->bytes (util/buffered-image content)))
     String (Content. (type content) content)
-    List (Content. (type content) content)))
+    List (Content. (type content) (file-content content))))
 
 (comment
   (str (->msg "abc"))
   (str (->msg (java.util.ArrayList.)))
+  (def files [(jio/file "D:/a.png")])
+  (file-content files)
   ,)
 
 (defn content-handler [content]
   (proxy
-    [ChannelInboundHandlerAdapter]
-    []
-    (channelActive [ctx]
-      (let [msg (->msg content)]
-        (println (type content)
-                 (if (instance? String content)
-                   content
-                   "Image")
-                 (type (.-content msg))
-                 (count (.-content msg)))
-        (.writeAndFlush ctx msg)))
+      [ChannelInboundHandlerAdapter]
+      []
+      (channelActive [ctx]
+        (let [msg (->msg content)]
+          (println (.-type msg)
+                   (type (.-content msg))
+                   (count (.-content msg)))
+          (.writeAndFlush ctx msg)))
 
-    (exceptionCaught [ctx cause]
-      (.printStackTrace cause)
-      (.close ctx))))
+      (exceptionCaught [ctx cause]
+        (.printStackTrace cause)
+        (.close ctx))))
 
 (defn get-handlers [content]
   (into-array
