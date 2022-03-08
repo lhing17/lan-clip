@@ -114,6 +114,15 @@
   (getTransferData [_ _]
     img))
 
+(defrecord FileListTransferable [fs]
+  Transferable
+  (getTransferDataFlavors [_]
+    (into-array [DataFlavor/javaFileListFlavor]))
+  (isDataFlavorSupported [_ flavor]
+    (= flavor DataFlavor/javaFileListFlavor))
+  (getTransferData [_ _]
+    fs))
+
 (defn read-edn [f]
   (with-open [in-edn (-> f
                          jio/resource

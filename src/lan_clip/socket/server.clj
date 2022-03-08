@@ -32,13 +32,19 @@
     (print (char (.readByte msg)))
     (flush)))
 
+
 (defmethod handle-msg List [msg]
   (let [fs (.-content msg)
-        tmp (jio/file "D:/tmp/")]
+        tmp (jio/file "D:/tmp/")
+        v (transient [])
+        clip (.getSystemClipboard (Toolkit/getDefaultToolkit))]
     (when-not (.exists tmp)
       (.mkdirs tmp))
     (doseq [f fs]
-      (jio/copy (second f) (jio/file tmp (first f))))))
+      (let [tmp-file (jio/file tmp (first f))]
+        (jio/copy (second f) tmp-file)
+        (conj! v tmp-file)))
+    (.setContents clip (util/->FileListTransferable (apply list (persistent! v))) nil)))
 
 (defn- ->handler []
   (proxy [ChannelInboundHandlerAdapter]
