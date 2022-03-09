@@ -46,7 +46,7 @@
                         (#(apply + %))
                         (quot 1024))
         clnt (client/->Client (:target-host conf) (:target-port conf) data)]
-    ;; TODO 如果文件总大小小于2M，默认直接传送到目标机器的临时文件夹，并设置到目标机器的剪贴板
+    ;; 如果文件总大小小于2M，默认直接传送到目标机器的临时文件夹，并设置到目标机器的剪贴板
     (if (< total-size 2048)
       (future (client/run clnt))
       (println "文件太大，文件大小为" total-size "K"))))
@@ -118,4 +118,5 @@
   (lan-clip))
 
 (comment
-  (-main))
+  (-main)
+  ,)

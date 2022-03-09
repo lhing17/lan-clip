@@ -48,7 +48,8 @@
         clip (.getSystemClipboard (Toolkit/getDefaultToolkit))]
     (if-not (.exists tmp)
       (.mkdirs tmp)
-      (FileUtils/cleanDirectory tmp))
+      (try (FileUtils/cleanDirectory tmp)
+           (catch Exception _)))
     (doseq [f fs]
       (let [tmp-file (jio/file tmp (first f))]
         (jio/copy (second f) tmp-file)
