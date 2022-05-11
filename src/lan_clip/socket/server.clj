@@ -25,23 +25,28 @@
 (defprotocol RunnableServer
   (run [this]))
 
+;; 处理接收到的不同类型的消息
 (defmulti handle-msg #(.-type %))
 
 (defmethod handle-msg String [msg]
+  "处理字符串类型的消息，直接设置到剪贴版上"
   (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))]
     (.setContents clip (StringSelection. (.-content msg)) nil)))
 
 (defmethod handle-msg Image [msg]
+  "处理图片类型的消息"
   (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))]
     (println (count (.-content msg)) (type (util/bytes->image (.-content msg))))
     (.setContents clip (util/->ImageTransferable (util/bytes->image (.-content msg))) nil)))
 
 (defmethod handle-msg ByteBuf [msg]
+  "处理字节流消息，打印并舍弃"
   (while (.isReadable msg)
     (print (char (.readByte msg)))
     (flush)))
 
 (defmethod handle-msg List [msg]
+  "处理文件列表消息，放到临时文件夹中，并设置到剪贴版上"
   (let [fs (.-content msg)
         tmp (jio/file (System/getProperty "user.dir") "tmp")
         v (transient [])
@@ -57,6 +62,7 @@
     (.setContents clip (util/->FileListTransferable (apply list (persistent! v))) nil)))
 
 (defn- ->handler []
+  "创建一个ChannelInboundHandlerAdapter实例，用于处理接收到的消息"
   (proxy [ChannelInboundHandlerAdapter]
          []
     (channelRead [ctx msg]
@@ -70,6 +76,7 @@
       (.printStackTrace cause)
       (.close ctx))))
 
+;; Server类，代表一个netty的服务器端实例
 (defrecord Server [port]
   RunnableServer
   (run [this]

@@ -86,6 +86,7 @@
   [^bytes bs]
   (ImageIO/read (ByteArrayInputStream. bs)))
 
+;; 可以使用md5方法的类型抽象
 (defprotocol Digestable
   (md5 [this]))
 
