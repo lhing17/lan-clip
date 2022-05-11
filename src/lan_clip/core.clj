@@ -21,6 +21,7 @@
 (defmethod handle-flavor DataFlavor/stringFlavor [clip conf]
   (let [data (.getData clip DataFlavor/stringFlavor)
         clnt (client/->Client (:target-host conf) (:target-port conf) data)]
+    (println data)
     (future (client/run clnt))))
 
 (defmethod handle-flavor DataFlavor/imageFlavor [clip conf]
