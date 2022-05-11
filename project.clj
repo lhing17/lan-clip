@@ -10,7 +10,8 @@
                  [seesaw "1.5.0"]
                  [com.formdev/flatlaf "2.2"]
                  [commons-io "2.11.0"]
-                 [cljfx "1.7.19"]]
+                 [cljfx "1.7.19"]
+                 [nrepl "0.9.0"]]
   :mirrors {"clojars" {:name "ustc"
                        :url "https://mirrors.tuna.tsinghua.edu.cn/clojars"}}
 
