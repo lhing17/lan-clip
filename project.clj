@@ -3,12 +3,12 @@
   :url "http://example.com/FIXME"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
-  :dependencies [[org.clojure/clojure "1.10.3"]
-                 [io.netty/netty-all "4.1.74.Final"]
+  :dependencies [[org.clojure/clojure "1.11.1"]
+                 [io.netty/netty-all "4.1.76.Final"]
                  [commons-codec "1.15"]
-                 [clj-commons/pomegranate "1.2.0"]
+                 [clj-commons/pomegranate "1.2.1"]
                  [seesaw "1.5.0"]
-                 [com.formdev/flatlaf "2.0.1"]
+                 [com.formdev/flatlaf "2.2"]
                  [commons-io "2.11.0"]
                  [cljfx "1.7.19"]]
   :mirrors {"clojars" {:name "ustc"
@@ -18,10 +18,10 @@
   :jvm-opts ["-server"]
   :main lan-clip.core
   :profiles {:uberjar {:omit-source true
-                       :env {:production true}
-                       :aot :all}
-             :reveal {:dependencies  [[vlaaad/reveal "1.3.269"]]
-                      :repl-options {:nrepl-middleware [vlaaad.reveal.nrepl/middleware]}}}
+                       :env         {:production true}
+                       :aot         :all}
+             :reveal  {:dependencies [[vlaaad/reveal "1.3.273"]]
+                       :repl-options {:nrepl-middleware [vlaaad.reveal.nrepl/middleware]}}}
   :pedantic? false
 
   :repl-options {:init-ns lan-clip.core})
