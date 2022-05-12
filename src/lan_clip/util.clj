@@ -138,8 +138,13 @@
 (defn read-edn
   "读取edn文件的配置"
   [f]
-  (with-open [in-edn (-> f
-                         jio/resource
+  (let [uh (System/getProperty "user.home")
+        p (jio/file uh ".lan-clip" f)]
+    (when (not (.exists p))
+      (.mkdirs (.getParentFile p))
+      (jio/copy (jio/reader (jio/resource f)) p))
+    (with-open [in-edn (->
+                         p
                          jio/reader
                          (PushbackReader.))]
-    (edn/read in-edn)))
+      (edn/read in-edn))))
