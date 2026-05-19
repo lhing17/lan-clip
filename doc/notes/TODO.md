@@ -92,9 +92,9 @@
 目标：避免两端互相回传同一份剪贴板内容，为后续多 peer 做准备。
 
 - [x] P0 在配置中生成并持久化 `node-id`。
-- [ ] P0 每条消息生成 `message-id`。
-- [ ] P0 消息 metadata 携带 `origin-node-id` 和 `sender-node-id`。
-- [ ] P0 增加最近处理消息缓存，按数量或时间淘汰。
+- [x] P0 每条消息生成 `message-id`（`protocol.clj` `encode-message` 中已生成 UUID）。
+- [x] P0 消息 header 已携带 `origin-node-id` 和 `sender-node-id`；metadata 当前仅含 `:content-type`，后续如需扩展可在 P1 补充。
+- [x] P0 增加最近处理消息缓存，按数量 LRU 淘汰。
 - [ ] P0 远端写入剪贴板后记录 `last-remote-fingerprint`。
 - [ ] P1 watcher 识别远端刚写入的内容并抑制回发。
 - [ ] P1 日志区分 `local-change`、`remote-apply`、`loop-suppressed`。
