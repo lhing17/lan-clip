@@ -1,0 +1,46 @@
+(ns lan-clip.config
+  "lan-clip 配置中心：集中默认配置、读取、合并与校验。
+
+  设计目标：
+  - 让 core.clj / socket/server.clj 不再各自 inline 写默认值。
+  - 让测试可以传入显式 path，避免污染用户 home 目录。
+  - 文件不存在不抛异常，回退到默认配置，便于初次启动。"
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as jio])
+  (:import (java.io PushbackReader)))
+
+(def default-config
+  "lan-clip 默认配置，是其它来源（用户配置、命令行）合并的基线。
+  注意 :target-host 必须保持 localhost，避免无意中向真实局域网 IP 发送。"
+  {:port 9002
+   :target-host "localhost"
+   :target-port 9002
+   :file-size 2048
+   :interval 2000})
+
+(defn- read-edn-file
+  "从指定路径读取 EDN 文件；文件不存在返回 nil。"
+  [path]
+  (let [f (jio/file path)]
+    (when (.exists f)
+      (with-open [in (-> f jio/reader (PushbackReader.))]
+        (edn/read in)))))
+
+(defn load-config
+  "从 path 加载配置并与默认值合并；文件不存在直接返回 default-config。"
+  [path]
+  (merge default-config (or (read-edn-file path) {})))
+
+(defn- valid-port?
+  [p]
+  (and (integer? p) (<= 1 p 65535)))
+
+(defn validate-config
+  "校验配置：通过则原样返回 m，否则抛 ex-info。当前仅校验端口范围。"
+  [m]
+  (when-not (valid-port? (:port m))
+    (throw (ex-info "Invalid :port" {:cause :invalid-port :port (:port m)})))
+  (when-not (valid-port? (:target-port m))
+    (throw (ex-info "Invalid :target-port" {:cause :invalid-target-port
+                                            :target-port (:target-port m)})))
+  m)

@@ -6,6 +6,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- 新增 `lan-clip.config` 命名空间，集中默认配置（`:port` / `:target-host` / `:target-port` / `:file-size` / `:interval`）、读取、合并与校验；附 6 个 `lein test` 用例覆盖默认值、默认 host、缺失文件、自定义覆盖、非法端口与默认配置自洽。
+- 新增 `lan-clip.fingerprint` 命名空间，迁移 `ClipboardData` 记录与内容摘要判断（`fingerprint`、`changed?`）；附 6 个 `lein test` 用例覆盖文本、图片字节、文件列表、类型变化、内容变化与相同内容。
+
 ### Changed
 
 - 清理 `lein new` 模板留下的失败断言，让 `lein test` 重新可信。
