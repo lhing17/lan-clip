@@ -5,7 +5,8 @@
            (java.awt Image Color)
            (java.awt.image BufferedImage ImageObserver)
            (java.util.concurrent.locks ReentrantLock Condition)
-           (java.io ByteArrayOutputStream File InputStream ByteArrayInputStream PushbackReader)
+           (java.io ByteArrayOutputStream File InputStream ByteArrayInputStream PushbackReader FileOutputStream)
+           (java.util.zip ZipOutputStream ZipEntry ZipInputStream)
            (javax.imageio ImageIO)
            (clojure.lang Seqable)
            (java.awt.datatransfer Transferable DataFlavor)))
@@ -126,6 +127,35 @@
     img))
 
 ;; 将文件清单设置到剪贴板的类型
+(defn files->zip-bytes
+  "将文件列表打包为 zip 字节数组，保留文件名。"
+  [^java.util.List files]
+  (let [baos (ByteArrayOutputStream.)
+        zos (ZipOutputStream. baos)]
+    (doseq [^File f files]
+      (.putNextEntry zos (ZipEntry. (.getName f)))
+      (with-open [is (jio/input-stream f)]
+        (jio/copy is zos))
+      (.closeEntry zos))
+    (.close zos)
+    (.toByteArray baos)))
+
+(defn zip-bytes->files
+  "将 zip 字节数组解压到 dest-dir，返回文件列表。"
+  [^bytes zip-bytes ^File dest-dir]
+  (.mkdirs dest-dir)
+  (let [result (java.util.ArrayList.)]
+    (with-open [zis (ZipInputStream. (ByteArrayInputStream. zip-bytes))]
+      (loop [entry (.getNextEntry zis)]
+        (when entry
+          (let [f (File. dest-dir (.getName entry))]
+            (with-open [fos (FileOutputStream. f)]
+              (jio/copy zis fos))
+            (.add result f))
+          (.closeEntry zis)
+          (recur (.getNextEntry zis)))))
+    result))
+
 (defrecord FileListTransferable [fs]
   Transferable
   (getTransferDataFlavors [_]

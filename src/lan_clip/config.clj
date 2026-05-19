@@ -16,7 +16,9 @@
    :target-host "localhost"
    :target-port 9002
    :file-size 2048
-   :interval 2000})
+   :interval 2000
+   :secret-key "lan-clip"
+   :max-frame-size 10485760})
 
 (defn- read-edn-file
   "从指定路径读取 EDN 文件；文件不存在返回 nil。"

@@ -49,9 +49,9 @@
 - [x] P0 新建 `src/lan_clip/clipboard.clj`，封装系统剪贴板读取与写入。
 - [x] P1 为 clipboard 定义可替换抽象，测试中使用 fake clipboard。
 - [x] P0 将 `set-interval` 改造成可停止 watcher。
-- [ ] P0 新建 `src/lan_clip/app.clj`，提供 `start!`、`stop!`、`status`。
-- [ ] P1 将 Netty server、clipboard watcher、client transport 纳入统一生命周期。
-- [ ] P1 退出时释放 server 端口、watcher future、Netty event loop。
+- [x] P0 新建 `src/lan_clip/app.clj`，提供 `start!`、`stop!`、`status`。
+- [x] P1 将 Netty server、clipboard watcher 纳入统一生命周期（`app.clj` `start!`/`stop!`）。
+- [x] P1 退出时释放 server 端口、watcher future、Netty event loop。
 - [ ] P2 删除或下沉 `server.clj` 中未使用的顶层 `config`。
 
 完成标准：
@@ -64,18 +64,22 @@
 
 目标：移除 Java 对象反序列化，换成显式协议和共享密钥认证。
 
-- [ ] P0 新建 `src/lan_clip/protocol.clj`。
-- [ ] P0 定义协议字段：magic、version、message-id、origin-node-id、sender-node-id、content-type、metadata-length、payload-length。
-- [ ] P0 选定 metadata 格式。建议 JSON，便于后续 Rust/Tauri 互通。
-- [ ] P0 实现文本消息编码与解码。
-- [ ] P0 实现 `HMAC-SHA256` 签名与校验。
-- [ ] P0 为 magic/version/length/HMAC 错误增加拒绝逻辑。
-- [ ] P0 替换文本链路中的 Netty `ObjectEncoder` / `ObjectDecoder`。
-- [ ] P1 实现图片消息编码与解码，payload 使用 PNG 字节。
-- [ ] P1 实现文件消息编码与解码，第一版使用 zip payload。
-- [ ] P1 服务端限制最大 payload，避免超大消息耗尽内存。
-- [ ] P1 为协议增加单元测试：正常文本、HMAC 失败、版本不匹配、payload 超限。
-- [ ] P2 为图片与文件协议增加测试。
+- [x] P0 新建 `src/lan_clip/protocol.clj`。
+- [x] P0 定义协议字段：magic、version、message-id、origin-node-id、sender-node-id、content-type、metadata-length、payload-length。
+- [x] P0 选定 metadata 格式。使用 EDN（`pr-str`）作为第一版，避免新增依赖；后续如需 Rust/Tauri 互通可再迁移到 JSON。
+- [x] P0 实现文本消息编码与解码。
+- [x] P0 实现 `HMAC-SHA256` 签名与校验。
+- [x] P0 为 magic/version/length/HMAC 错误增加拒绝逻辑。
+- [x] P0 替换文本链路中的 Netty `ObjectEncoder` / `ObjectDecoder`。
+  - [x] 新建 `lan-clip.socket.protocol-codec`，提供 `encode-frame` / `->protocol-encoder` / `->protocol-decoder`。
+  - [x] 修改 `server.clj` / `client.clj` / `core.clj` 使用新 codec；`lein test` 全绿，集成测试验证 encoder → decoder 往返。localhost 双端运行需手动验收。
+  - [x] 图片链路已迁移（PNG payload / HMAC / encoder-decoder 往返）。
+  - [x] 文件链路已迁移（zip payload / 临时目录解压 / encoder-decoder 往返）。
+- [x] P1 实现图片消息编码与解码，payload 使用 PNG 字节。
+- [x] P1 实现文件消息编码与解码，第一版使用 zip payload。
+- [x] P1 服务端限制最大 payload，避免超大消息耗尽内存。
+- [x] P1 为协议增加单元测试：正常文本、HMAC 失败、版本不匹配、payload 超限。
+- [x] P2 为图片与文件协议增加测试。
 
 完成标准：
 
@@ -222,10 +226,10 @@
 3. [x] 新建 `lan-clip.fingerprint`，迁移 `ClipboardData` 和 MD5 判断。
 4. [x] 抽象 `lan-clip.clipboard`，封装读取/写入文本、图片、文件列表。
 5. [x] 给 watcher 增加可停止机制。
-6. [ ] 新建 `lan-clip.app`，提供 `start!`、`stop!`、`status`。
-7. [ ] 新建 `lan-clip.protocol`，先实现 text message 的新协议和 HMAC。
-8. [ ] 替换 Netty object codec 的文本链路，跑通 localhost 文本同步。
-9. [ ] 迁移 image 和 files 链路。
+6. [x] 新建 `lan-clip.app`，提供 `start!`、`stop!`、`status`。
+7. [x] 新建 `lan-clip.protocol`，先实现 text message 的新协议和 HMAC。
+8. [x] 替换 Netty object codec 的文本链路，跑通 localhost 文本同步。
+9. [x] 迁移 image 和 files 链路。（image 与 files 均已完成）
 10. [ ] 加入 HTTP 管理 API，为 Tauri 做准备。
 
 ## 当前已知风险
