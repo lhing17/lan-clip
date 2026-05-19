@@ -42,8 +42,8 @@
 
 目标：把当前混在 `core.clj` / `util.clj` / `socket` 中的逻辑拆成可测试、可停止、可复用的核心模块。
 
-- [ ] P0 新建 `src/lan_clip/config.clj`，集中默认配置、读取、合并、校验。
-- [ ] P0 为配置增加测试：默认值、缺失文件、自定义覆盖、非法端口。
+- [x] P0 新建 `src/lan_clip/config.clj`，集中默认配置、读取、合并、校验。
+- [x] P0 为配置增加测试：默认值、缺失文件、自定义覆盖、非法端口。
 - [ ] P0 新建 `src/lan_clip/fingerprint.clj`，迁移 `ClipboardData` 与内容摘要判断。
 - [ ] P0 为 fingerprint 增加测试：文本、图片字节、文件列表、类型变化。
 - [ ] P0 新建 `src/lan_clip/clipboard.clj`，封装系统剪贴板读取与写入。
@@ -218,7 +218,7 @@
 先从这 10 项开始：
 
 1. [x] 清理模板测试，使 `lein test` 通过。
-2. [ ] 新建 `lan-clip.config`，集中默认配置、读取、校验。
+2. [x] 新建 `lan-clip.config`，集中默认配置、读取、校验。
 3. [ ] 新建 `lan-clip.fingerprint`，迁移 `ClipboardData` 和 MD5 判断。
 4. [ ] 抽象 `lan-clip.clipboard`，封装读取/写入文本、图片、文件列表。
 5. [ ] 给 watcher 增加可停止机制。
