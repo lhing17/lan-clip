@@ -10,3 +10,4 @@
 #2026-05-19 完成 Phase 1 P0 第五步：新增 `lan-clip.app` 命名空间（`start!` / `stop!` / `status`，整合配置加载与 watcher 生命周期）及 3 个 `lein test` 用例（启动停止 / 默认配置 / 状态反映）。
 #2026-05-19 完成 Phase 2 P0 第一步：新增 `lan-clip.protocol` 命名空间（二进制协议 / HMAC-SHA256 / magic+version 校验）及 6 个 `lein test` 用例（文本往返 / HMAC 成功 / HMAC 失败 / magic 错误 / version 错误 / 截断消息）。metadata 第一版使用 EDN，避免新增依赖。
 #2026-05-19 完成 Phase 2 P0 第二步：新增 `lan-clip.socket.protocol-codec` 命名空间（Netty 编解码器 / 4-byte length prefix / `->protocol-encoder` / `->protocol-decoder`）及 6 个 `lein test` 用例（frame 长度前缀 / encoder 有效性 / decoder 完整读取 / decoder 半包累积 / HMAC 拒绝 / 往返）。尚未替换 `server.clj` / `client.clj` 中的 ObjectEncoder/ObjectDecoder。
+#2026-05-19 完成 Phase 2 P0 第三步：将 `protocol-codec` 整合进 `server.clj` / `client.clj` / `core.clj`，替换 `ObjectEncoder` / `ObjectDecoder`；`config.clj` 增加 `:secret-key` 默认；`handle-msg` 按 `:content-type` 分发；新增 integration-test 验证 encoder → decoder 往返。图片/文件链路待迁移。

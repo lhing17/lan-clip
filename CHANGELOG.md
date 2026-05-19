@@ -16,6 +16,12 @@
 - 新增 `lan-clip.protocol` 命名空间，定义显式二进制协议（magic `0x4C434C50` / version / UUID 字段 / content-type / metadata-length / payload-length）与 HMAC-SHA256 认证，替代 Java 对象序列化；附 6 个 `lein test` 用例覆盖文本往返、HMAC 成功/失败、magic/version 错误、截断消息拒绝。metadata 第一版使用 EDN，避免新增外部依赖。
 - 新增 `lan-clip.socket.protocol-codec` 命名空间，提供 Netty 编解码器 `encode-frame`（4-byte length prefix）、`->protocol-encoder`（String → protocol frame）、`->protocol-decoder`（length-prefixed frame → Message），为替换 `ObjectEncoder` / `ObjectDecoder` 做准备；附 6 个 `lein test` 用例覆盖 frame 长度前缀、encoder 输出有效性、decoder 完整/半包读取、HMAC 拒绝、编解码往返。
 
+- `lan-clip.config` 默认配置增加 `:secret-key`（默认 `"lan-clip"`），为 HMAC 签名提供共享密钥。
+- `lan-clip.socket.server` 移除 `ObjectDecoder`，接入 `->protocol-decoder`；`handle-msg` 按 `Message` 的 `:content-type` 分发；文本链路可直接运行，图片/文件链路打印未实现提示待后续迁移。
+- `lan-clip.socket.client` 移除 `ObjectEncoder`/`ObjectDecoder` 与 `Content` 类型依赖，接入 `->protocol-encoder`；`->Client` 增加 `secret-key` 与 `node-id` 参数；仅文本内容通过新协议发送。
+- `lan-clip.core` 使用 `config/load-config` 替代 `util/read-edn`；启动时生成 `node-id`（`UUID/randomUUID`）并透传至 server/client；图片/文件剪贴板内容暂不同步。
+- 新增 `lan-clip.socket.integration-test`，验证 client encoder → server decoder 文本往返（`EmbeddedChannel`）。
+
 ### Changed
 
 - 清理 `lein new` 模板留下的失败断言，让 `lein test` 重新可信。

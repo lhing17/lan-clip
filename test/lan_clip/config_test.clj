@@ -13,14 +13,15 @@
     f))
 
 (deftest default-config-has-required-keys
-  (testing "default-config 应包含 :port :target-host :target-port :file-size :interval"
+  (testing "default-config 应包含 :port :target-host :target-port :file-size :interval :secret-key"
     (let [d config/default-config]
       (is (map? d))
       (is (contains? d :port))
       (is (contains? d :target-host))
       (is (contains? d :target-port))
       (is (contains? d :file-size))
-      (is (contains? d :interval)))))
+      (is (contains? d :interval))
+      (is (contains? d :secret-key)))))
 
 (deftest default-config-has-safe-default-host
   (testing "默认 target-host 必须是 localhost，避免无意中向局域网真实 IP 发送"
