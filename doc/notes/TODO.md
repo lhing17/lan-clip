@@ -64,12 +64,12 @@
 
 目标：移除 Java 对象反序列化，换成显式协议和共享密钥认证。
 
-- [ ] P0 新建 `src/lan_clip/protocol.clj`。
-- [ ] P0 定义协议字段：magic、version、message-id、origin-node-id、sender-node-id、content-type、metadata-length、payload-length。
-- [ ] P0 选定 metadata 格式。建议 JSON，便于后续 Rust/Tauri 互通。
-- [ ] P0 实现文本消息编码与解码。
-- [ ] P0 实现 `HMAC-SHA256` 签名与校验。
-- [ ] P0 为 magic/version/length/HMAC 错误增加拒绝逻辑。
+- [x] P0 新建 `src/lan_clip/protocol.clj`。
+- [x] P0 定义协议字段：magic、version、message-id、origin-node-id、sender-node-id、content-type、metadata-length、payload-length。
+- [x] P0 选定 metadata 格式。使用 EDN（`pr-str`）作为第一版，避免新增依赖；后续如需 Rust/Tauri 互通可再迁移到 JSON。
+- [x] P0 实现文本消息编码与解码。
+- [x] P0 实现 `HMAC-SHA256` 签名与校验。
+- [x] P0 为 magic/version/length/HMAC 错误增加拒绝逻辑。
 - [ ] P0 替换文本链路中的 Netty `ObjectEncoder` / `ObjectDecoder`。
 - [ ] P1 实现图片消息编码与解码，payload 使用 PNG 字节。
 - [ ] P1 实现文件消息编码与解码，第一版使用 zip payload。
@@ -223,7 +223,7 @@
 4. [x] 抽象 `lan-clip.clipboard`，封装读取/写入文本、图片、文件列表。
 5. [x] 给 watcher 增加可停止机制。
 6. [x] 新建 `lan-clip.app`，提供 `start!`、`stop!`、`status`。
-7. [ ] 新建 `lan-clip.protocol`，先实现 text message 的新协议和 HMAC。
+7. [x] 新建 `lan-clip.protocol`，先实现 text message 的新协议和 HMAC。
 8. [ ] 替换 Netty object codec 的文本链路，跑通 localhost 文本同步。
 9. [ ] 迁移 image 和 files 链路。
 10. [ ] 加入 HTTP 管理 API，为 Tauri 做准备。
