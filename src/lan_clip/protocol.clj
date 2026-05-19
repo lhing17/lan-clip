@@ -14,6 +14,7 @@
     [M bytes]  payload
     [32 bytes] HMAC-SHA256"
   (:import (java.nio ByteBuffer)
+           (java.security MessageDigest)
            (java.util Arrays UUID)
            (javax.crypto Mac)
            (javax.crypto.spec SecretKeySpec)))
@@ -129,7 +130,7 @@
           data-end (+ HEADER-SIZE meta-len pay-len)
           data (Arrays/copyOfRange encoded 0 data-end)
           computed (hmac-sha256 data secret-key)]
-      (when (not= (seq stored) (seq computed))
+      (when-not (MessageDigest/isEqual stored computed)
         (throw (ex-info "HMAC verification failed" {:cause :bad-hmac})))
       (->Message (bytes->uuid msg-id-b)
                  (bytes->uuid origin-b)
