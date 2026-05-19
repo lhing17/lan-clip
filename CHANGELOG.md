@@ -12,6 +12,7 @@
 - 新增 `lan-clip.fingerprint` 命名空间，迁移 `ClipboardData` 记录与内容摘要判断（`fingerprint`、`changed?`）；附 6 个 `lein test` 用例覆盖文本、图片字节、文件列表、类型变化、内容变化与相同内容。
 - 新增 `lan-clip.clipboard` 命名空间，定义 `IClipboard` 可替换协议，提供 `SystemClipboard`（真实系统剪贴板）与 `FakeClipboard`（测试替身）两种实现；附 6 个 `lein test` 用例覆盖空状态、文本/图片/文件列表读写、`available-flavors` 与协议实现检查。
 - 新增 `lan-clip.watcher` 命名空间，提供可停止的 `start-watcher` / `stop-watcher`（基于 `volatile!` 运行标志与 `future-cancel` 中断），替代 `util.clj` 中不可停止的 `set-interval`；附 4 个 `lein test` 用例覆盖回调执行、周期性、可停止与幂等停止。
+- 新增 `lan-clip.app` 命名空间，提供应用生命周期管理 `start!` / `stop!` / `status`，整合配置加载（`lan-clip.config`）与 watcher 启动/停止；附 3 个 `lein test` 用例覆盖启动停止循环、默认配置、状态反映。Netty server 整合留待 Phase 1 P1。
 
 ### Changed
 

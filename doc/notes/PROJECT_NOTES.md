@@ -7,3 +7,4 @@
 #2026-05-19 完成 Phase 1 P0 第二步：新增 `lan-clip.fingerprint` 命名空间（迁移 `ClipboardData` 记录、`fingerprint`、`changed?`）及 6 个 `lein test` 用例（文本 / 图片字节 / 文件列表 / flavor 变化 / 内容变化 / 相同内容）。
 #2026-05-19 完成 Phase 1 P0 第三步：新增 `lan-clip.clipboard` 命名空间（`IClipboard` 协议、`SystemClipboard`、`FakeClipboard`）及 6 个 `lein test` 用例（空状态 / 文本读写 / 图片读写 / 文件列表读写 / available-flavors / 协议实现检查）。
 #2026-05-19 完成 Phase 1 P0 第四步：新增 `lan-clip.watcher` 命名空间（可停止的 `start-watcher` / `stop-watcher`，基于 `volatile!` + `future-cancel`）及 4 个 `lein test` 用例（回调执行 / 周期性 / 可停止 / 幂等停止）。
+#2026-05-19 完成 Phase 1 P0 第五步：新增 `lan-clip.app` 命名空间（`start!` / `stop!` / `status`，整合配置加载与 watcher 生命周期）及 3 个 `lein test` 用例（启动停止 / 默认配置 / 状态反映）。
