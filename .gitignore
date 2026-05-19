@@ -17,3 +17,6 @@ target/
 *.exe
 .clj-kondo/
 .lsp/.cache/
+.DS_Store
+.claude/scheduled_tasks.lock
+.claude/worktrees/
