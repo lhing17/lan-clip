@@ -7,6 +7,14 @@
 (def ^:private app-state
   (atom nil))
 
+(def ^:private last-remote-fp
+  (atom nil))
+
+(defn last-remote-fingerprint
+  "返回最近一次远端写入剪贴板的内容指纹（ClipboardData），若尚未收到则为 nil。"
+  []
+  @last-remote-fp)
+
 (defn status
   "返回当前应用状态。"
   []
@@ -36,7 +44,8 @@
                                        #(clipboard-handler validated))
          s-ctrl (server/start-server (:port validated)
                                      (:secret-key validated)
-                                     (:max-frame-size validated))]
+                                     (:max-frame-size validated)
+                                     #(reset! last-remote-fp %))]
      (reset! app-state {:running? true
                         :config   validated
                         :watcher  w-ctrl
@@ -53,4 +62,5 @@
     (when-let [s (:server st)]
       ((:stop! s))))
   (reset! app-state nil)
+  (reset! last-remote-fp nil)
   (status))
