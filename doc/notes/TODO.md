@@ -77,8 +77,8 @@
   - [x] 文件链路已迁移（zip payload / 临时目录解压 / encoder-decoder 往返）。
 - [x] P1 实现图片消息编码与解码，payload 使用 PNG 字节。
 - [x] P1 实现文件消息编码与解码，第一版使用 zip payload。
-- [ ] P1 服务端限制最大 payload，避免超大消息耗尽内存。
-- [ ] P1 为协议增加单元测试：正常文本、HMAC 失败、版本不匹配、payload 超限。
+- [x] P1 服务端限制最大 payload，避免超大消息耗尽内存。
+- [x] P1 为协议增加单元测试：正常文本、HMAC 失败、版本不匹配、payload 超限。
 - [x] P2 为图片与文件协议增加测试。
 
 完成标准：

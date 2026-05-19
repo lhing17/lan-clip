@@ -3,7 +3,7 @@
             [lan-clip.socket.protocol-codec :as codec]
             [lan-clip.protocol :as protocol])
   (:import (io.netty.buffer Unpooled ByteBuf)
-           (io.netty.channel ChannelHandler)
+           (io.netty.channel ChannelHandler ChannelInboundHandlerAdapter)
            (io.netty.channel.embedded EmbeddedChannel)
            (java.awt.image BufferedImage)
            (java.io File)
@@ -124,6 +124,24 @@
           (finally
             (.release buf)
             (.finish ch)))))))
+
+(deftest protocol-decoder-rejects-oversized-frame
+  (testing "->protocol-decoder 应拒绝超过 max-frame-size 的 frame"
+    (let [max-size 1024
+          oversized-len (+ max-size 1)
+          ^ByteBuf buf (Unpooled/buffer)
+          caught (atom nil)]
+      (.writeInt buf oversized-len)
+      (.writeBytes buf (byte-array oversized-len))
+      (let [ch (EmbeddedChannel. (into-array ChannelHandler
+                                             [(codec/->protocol-decoder test-secret max-size)
+                                              (proxy [ChannelInboundHandlerAdapter] []
+                                                (exceptionCaught [_ cause]
+                                                  (reset! caught cause)))]))]
+        (.writeInbound ch (into-array Object [buf]))
+        (is (some? @caught) "decoder 应在检测到超大 frame 后触发 exceptionCaught")
+        (is (instance? io.netty.handler.codec.DecoderException @caught))
+        (.finish ch)))))
 
 (deftest roundtrip-encode-decode
   (testing "encoder 输出应能被 decoder 正确解码"

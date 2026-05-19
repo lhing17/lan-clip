@@ -96,7 +96,7 @@
     (util/set-interval (:interval conf 2000) #(listen-clipboard node-id secret-key))
 
     ;; 启动netty server，用于接收另一端传来的消息
-    (-> conf (:port) (int) (server/->Server secret-key) (.run) (future))))
+    (-> conf (:port) (int) (server/->Server secret-key (:max-frame-size conf)) (.run) (future))))
 
 
 (defn -main [& _]

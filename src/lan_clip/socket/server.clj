@@ -59,7 +59,7 @@
       (.close ctx))))
 
 ;; Server 类，代表一个 netty 的服务器端实例
-(defrecord Server [port secret-key]
+(defrecord Server [port secret-key max-frame-size]
   RunnableServer
   (run [this]
     (let [boss-group (NioEventLoopGroup.)
@@ -74,7 +74,7 @@
                                         []
                                    (initChannel [^SocketChannel ch]
                                      (.. ch (pipeline) (addLast (into-array ChannelHandler
-                                                                            [(codec/->protocol-decoder secret-key)
+                                                                            [(codec/->protocol-decoder secret-key max-frame-size)
                                                                              (->handler)]))))))
                   (.option ChannelOption/SO_BACKLOG (int 1024))
                   (.bind port)

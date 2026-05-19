@@ -46,13 +46,17 @@
         (.write ctx msg promise)))))
 
 (defn ->protocol-decoder
-  "返回一个 Netty inbound handler，从 length-prefixed stream 中解码 protocol Message。"
-  [secret-key]
+  "返回一个 Netty inbound handler，从 length-prefixed stream 中解码 protocol Message。
+  可选的 max-frame-size 用于拒绝超大 frame，防止内存耗尽。"
+  [secret-key & [max-frame-size]]
   (proxy [ByteToMessageDecoder] []
     (decode [^ChannelHandlerContext ctx ^ByteBuf in out]
       (when (>= (.readableBytes in) 4)
         (.markReaderIndex in)
         (let [len (.readInt in)]
+          (when (and max-frame-size (> len max-frame-size))
+            (.resetReaderIndex in)
+            (throw (ex-info "Frame too large" {:cause :frame-too-large :size len :max max-frame-size})))
           (if (< (.readableBytes in) len)
             (.resetReaderIndex in)
             (let [frame (byte-array len)]

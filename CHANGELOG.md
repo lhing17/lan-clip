@@ -34,6 +34,10 @@
 - `lan-clip.socket.client` 的 `content-handler` 扩展支持文件列表内容发送。
 - `lan-clip.core` 重新启用文件剪贴板内容同步。
 - `lan-clip.socket.integration-test` 新增文件列表往返验证（`List<File>` → encoder → decoder → Message `:file-list`）。
+- `lan-clip.config` 默认配置增加 `:max-frame-size`（默认 10MB = 10485760 bytes）。
+- `lan-clip.socket.protocol-codec` 的 `->protocol-decoder` 增加可选的 `max-frame-size` 参数，超过限制时立即拒绝并关闭连接；附 1 个 `lein test` 用例覆盖超大 frame 拒绝。
+- `lan-clip.socket.server` 的 `Server` record 增加 `max-frame-size` 字段，启动时从配置读取并透传给 decoder。
+- `lan-clip.core` 启动 server 时传入 `(:max-frame-size conf)`。
 
 ### Changed
 
