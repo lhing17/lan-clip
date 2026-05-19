@@ -1,1 +1,4 @@
-{:target-host "172.20.10.111"}
+{:target-host "192.168.1.181"
+ :file-size 4096}
+;;{:target-host "localhost"}
+
