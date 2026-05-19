@@ -26,8 +26,10 @@
     (println data)
     (future (client/run clnt))))
 
-(defmethod handle-flavor DataFlavor/imageFlavor [_ _ _ _]
-  (println "Image sync not yet implemented with new protocol"))
+(defmethod handle-flavor DataFlavor/imageFlavor [clip conf node-id secret-key]
+  (let [data (.getData clip DataFlavor/imageFlavor)
+        clnt (client/->Client (:target-host conf) (:target-port conf) data secret-key node-id)]
+    (future (client/run clnt))))
 
 (defmethod handle-flavor DataFlavor/javaFileListFlavor [_ _ _ _]
   (println "File sync not yet implemented with new protocol"))

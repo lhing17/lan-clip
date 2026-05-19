@@ -27,9 +27,11 @@
         text (String. ^bytes (:payload msg) "UTF-8")]
     (.setContents clip (StringSelection. text) nil)))
 
-(defmethod handle-msg :image [_msg]
-  "处理图片类型的消息（待 protocol image 编码完成后启用）"
-  (println "Image sync not yet implemented with new protocol"))
+(defmethod handle-msg :image [msg]
+  "处理图片消息，将 payload PNG 字节解码为 BufferedImage 并设置到剪贴板"
+  (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))
+        img (util/bytes->image (:payload msg))]
+    (.setContents clip (util/->ImageTransferable img) nil)))
 
 (defmethod handle-msg :file-list [_msg]
   "处理文件列表消息（待 protocol file 编码完成后启用）"

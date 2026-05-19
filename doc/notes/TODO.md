@@ -73,8 +73,9 @@
 - [x] P0 替换文本链路中的 Netty `ObjectEncoder` / `ObjectDecoder`。
   - [x] 新建 `lan-clip.socket.protocol-codec`，提供 `encode-frame` / `->protocol-encoder` / `->protocol-decoder`。
   - [x] 修改 `server.clj` / `client.clj` / `core.clj` 使用新 codec；`lein test` 全绿，集成测试验证 encoder → decoder 往返。localhost 双端运行需手动验收。
-  - [ ] 图片与文件链路待后续迁移。
-- [ ] P1 实现图片消息编码与解码，payload 使用 PNG 字节。
+  - [x] 图片链路已迁移（PNG payload / HMAC / encoder-decoder 往返）。
+  - [ ] 文件链路待后续迁移。
+- [x] P1 实现图片消息编码与解码，payload 使用 PNG 字节。
 - [ ] P1 实现文件消息编码与解码，第一版使用 zip payload。
 - [ ] P1 服务端限制最大 payload，避免超大消息耗尽内存。
 - [ ] P1 为协议增加单元测试：正常文本、HMAC 失败、版本不匹配、payload 超限。
@@ -228,7 +229,7 @@
 6. [x] 新建 `lan-clip.app`，提供 `start!`、`stop!`、`status`。
 7. [x] 新建 `lan-clip.protocol`，先实现 text message 的新协议和 HMAC。
 8. [x] 替换 Netty object codec 的文本链路，跑通 localhost 文本同步。
-9. [ ] 迁移 image 和 files 链路。
+9. [~] 迁移 image 和 files 链路。（image 已完成，files 待迁移）
 10. [ ] 加入 HTTP 管理 API，为 Tauri 做准备。
 
 ## 当前已知风险

@@ -58,3 +58,13 @@
           truncated (byte-array (take 10 encoded))]
       (is (thrown? clojure.lang.ExceptionInfo
                    (protocol/decode-message truncated test-key))))))
+
+(deftest image-message-roundtrip
+  (testing "图片消息编码后解码应还原原始字节与 content-type"
+    (let [image-bytes (byte-array [0x89 0x50 0x4E 0x47 0x0D 0x0A 0x1A 0x0A]) ;; PNG magic
+          encoded (protocol/encode-image-message image-bytes test-origin-id test-sender-id test-key)
+          decoded (protocol/decode-message encoded test-key)]
+      (is (= :image (:content-type decoded)))
+      (is (java.util.Arrays/equals image-bytes ^bytes (:payload decoded)))
+      (is (= test-origin-id (:origin-node-id decoded)))
+      (is (= test-sender-id (:sender-node-id decoded))))))

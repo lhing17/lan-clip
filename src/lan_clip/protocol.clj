@@ -56,13 +56,11 @@
     (.init mac key)
     (.doFinal mac data)))
 
-(defn encode-text-message
-  "将文本消息编码为带 HMAC 签名的二进制字节数组。"
-  [text origin-node-id sender-node-id secret-key]
+(defn- encode-message
+  "通用消息编码：content-type + payload-bytes → 带 HMAC 的二进制字节数组。"
+  [content-type ^bytes payload-bytes origin-node-id sender-node-id secret-key]
   (let [message-id (UUID/randomUUID)
-        content-type :text
         metadata-bytes (.getBytes (pr-str {:content-type content-type}) "UTF-8")
-        payload-bytes (.getBytes text "UTF-8")
         metadata-len (count metadata-bytes)
         payload-len (count payload-bytes)
         body-size (+ metadata-len payload-len)
@@ -82,6 +80,16 @@
           sig (hmac-sha256 data secret-key)]
       (.put buf sig))
     (.array buf)))
+
+(defn encode-text-message
+  "将文本消息编码为带 HMAC 签名的二进制字节数组。"
+  [text origin-node-id sender-node-id secret-key]
+  (encode-message :text (.getBytes text "UTF-8") origin-node-id sender-node-id secret-key))
+
+(defn encode-image-message
+  "将图片消息（PNG 字节数组）编码为带 HMAC 签名的二进制字节数组。"
+  [^bytes image-bytes origin-node-id sender-node-id secret-key]
+  (encode-message :image image-bytes origin-node-id sender-node-id secret-key))
 
 (defn decode-message
   "解码二进制消息并验证 HMAC。验证失败或格式错误时抛 ex-info。"

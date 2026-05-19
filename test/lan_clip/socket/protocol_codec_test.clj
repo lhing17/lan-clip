@@ -5,6 +5,7 @@
   (:import (io.netty.buffer Unpooled ByteBuf)
            (io.netty.channel ChannelHandler)
            (io.netty.channel.embedded EmbeddedChannel)
+           (java.awt.image BufferedImage)
            (java.util Arrays UUID)
            (lan_clip.protocol Message)))
 
@@ -81,6 +82,25 @@
           ch (EmbeddedChannel. (into-array ChannelHandler [(codec/->protocol-decoder test-secret)]))]
       (is (thrown? Exception (.writeInbound ch (into-array Object [buf]))))
       (.finish ch))))
+
+(deftest protocol-encoder-handles-image
+  (testing "->protocol-encoder 应将 BufferedImage 编码为 image protocol frame"
+    (let [img (BufferedImage. 2 2 BufferedImage/TYPE_INT_ARGB)
+          ch (EmbeddedChannel. (into-array ChannelHandler [(codec/->protocol-encoder test-origin test-sender test-secret)]))]
+      (.writeOutbound ch (into-array Object [img]))
+      (let [^ByteBuf buf (.readOutbound ch)]
+        (try
+          (is (instance? ByteBuf buf))
+          (let [frame-len (.readInt buf)
+                frame-bytes (byte-array frame-len)]
+            (.readBytes buf frame-bytes)
+            (is (= 0 (.readableBytes buf)))
+            (let [msg (protocol/decode-message frame-bytes test-secret)]
+              (is (= :image (:content-type msg)))
+              (is (> (count (:payload msg)) 0) "payload 应非空 PNG 字节")))
+          (finally
+            (.release buf)
+            (.finish ch)))))))
 
 (deftest roundtrip-encode-decode
   (testing "encoder 输出应能被 decoder 正确解码"

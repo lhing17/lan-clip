@@ -5,7 +5,8 @@
            (io.netty.bootstrap Bootstrap)
            (io.netty.channel ChannelFuture ChannelOption ChannelInitializer ChannelHandler ChannelInboundHandlerAdapter)
            (io.netty.channel.socket.nio NioSocketChannel)
-           (io.netty.channel.socket SocketChannel)))
+           (io.netty.channel.socket SocketChannel)
+           (java.awt Image)))
 
 (defprotocol RunnableClient
   (run [this]))
@@ -15,7 +16,8 @@
       [ChannelInboundHandlerAdapter]
       []
       (channelActive [ctx]
-        (when (string? content)
+        (when (or (string? content)
+                  (instance? Image content))
           (.writeAndFlush ctx content)))
 
       (exceptionCaught [ctx cause]

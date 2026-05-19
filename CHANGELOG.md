@@ -21,6 +21,12 @@
 - `lan-clip.socket.client` 移除 `ObjectEncoder`/`ObjectDecoder` 与 `Content` 类型依赖，接入 `->protocol-encoder`；`->Client` 增加 `secret-key` 与 `node-id` 参数；仅文本内容通过新协议发送。
 - `lan-clip.core` 使用 `config/load-config` 替代 `util/read-edn`；启动时生成 `node-id`（`UUID/randomUUID`）并透传至 server/client；图片/文件剪贴板内容暂不同步。
 - 新增 `lan-clip.socket.integration-test`，验证 client encoder → server decoder 文本往返（`EmbeddedChannel`）。
+- `lan-clip.protocol` 提取通用 `encode-message`，新增 `encode-image-message`；附 1 个 `lein test` 用例覆盖图片往返。
+- `lan-clip.socket.protocol-codec` 的 `->protocol-encoder` 扩展支持 `java.awt.Image`（自动转为 PNG 字节）；附 1 个 `lein test` 用例覆盖 BufferedImage 编码。
+- `lan-clip.socket.server` 的 `:image` handler 实现：将 payload PNG 字节解码为 `BufferedImage` 并写入系统剪贴板。
+- `lan-clip.socket.client` 的 `content-handler` 扩展支持 `Image` 内容发送。
+- `lan-clip.core` 重新启用图片剪贴板内容同步。
+- `lan-clip.socket.integration-test` 新增图片往返验证（`BufferedImage` → encoder → decoder → Message `:image`）。
 
 ### Changed
 
