@@ -21,17 +21,39 @@
    :max-frame-size 10485760})
 
 (defn- read-edn-file
-  "从指定路径读取 EDN 文件；文件不存在返回 nil。"
+  "从指定路径读取 EDN 文件；文件不存在或 path 为 nil 时返回 nil。"
   [path]
-  (let [f (jio/file path)]
-    (when (.exists f)
-      (with-open [in (-> f jio/reader (PushbackReader.))]
-        (edn/read in)))))
+  (when path
+    (let [f (jio/file path)]
+      (when (.exists f)
+        (with-open [in (-> f jio/reader (PushbackReader.))]
+          (edn/read in))))))
+
+(defn node-id-path
+  "返回 node-id 持久化文件路径，默认位于 ~/.lan-clip/node-id。"
+  []
+  (let [home (System/getProperty "user.home")]
+    (.getAbsolutePath (jio/file home ".lan-clip" "node-id"))))
+
+(defn- load-or-create-node-id
+  "读取或生成并持久化 node-id UUID。"
+  []
+  (let [p (jio/file (node-id-path))]
+    (if (.exists p)
+      (edn/read-string (slurp p))
+      (let [id (java.util.UUID/randomUUID)]
+        (.mkdirs (.getParentFile p))
+        (spit p (pr-str id))
+        id))))
 
 (defn load-config
-  "从 path 加载配置并与默认值合并；文件不存在直接返回 default-config。"
+  "从 path 加载配置并与默认值合并；文件不存在直接返回 default-config。
+  如果配置中不含 :node-id，自动生成并持久化到 ~/.lan-clip/node-id。"
   [path]
-  (merge default-config (or (read-edn-file path) {})))
+  (let [cfg (merge default-config (or (read-edn-file path) {}))]
+    (if (:node-id cfg)
+      cfg
+      (assoc cfg :node-id (load-or-create-node-id)))))
 
 (defn- valid-port?
   [p]
