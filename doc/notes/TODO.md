@@ -25,7 +25,7 @@
 
 - [x] P0 清理模板失败测试：修改 `test/lan_clip/core_test.clj`，删除固定失败断言。
 - [x] P0 运行 `lein test`，确保基础测试通过。
-- [ ] P0 更新 `project.clj` 中的 `:description` 和 `:url`。
+- [x] P0 更新 `project.clj` 中的 `:description` 和 `:url`。
 - [ ] P1 清理 `CHANGELOG.md` 模板内容，改为 lan-clip 真实变更骨架。
 - [ ] P1 改写 `doc/intro.md`，作为文档入口并链接到 `doc/notes`。
 - [ ] P1 梳理 `.gitignore`，确认忽略 `.DS_Store`、IDE、本地缓存、构建产物。
