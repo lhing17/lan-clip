@@ -14,6 +14,7 @@
 - 新增 `lan-clip.watcher` 命名空间，提供可停止的 `start-watcher` / `stop-watcher`（基于 `volatile!` 运行标志与 `future-cancel` 中断），替代 `util.clj` 中不可停止的 `set-interval`；附 4 个 `lein test` 用例覆盖回调执行、周期性、可停止与幂等停止。
 - 新增 `lan-clip.app` 命名空间，提供应用生命周期管理 `start!` / `stop!` / `status`，整合配置加载（`lan-clip.config`）与 watcher 启动/停止；附 3 个 `lein test` 用例覆盖启动停止循环、默认配置、状态反映。Netty server 整合留待 Phase 1 P1。
 - 新增 `lan-clip.protocol` 命名空间，定义显式二进制协议（magic `0x4C434C50` / version / UUID 字段 / content-type / metadata-length / payload-length）与 HMAC-SHA256 认证，替代 Java 对象序列化；附 6 个 `lein test` 用例覆盖文本往返、HMAC 成功/失败、magic/version 错误、截断消息拒绝。metadata 第一版使用 EDN，避免新增外部依赖。
+- 新增 `lan-clip.socket.protocol-codec` 命名空间，提供 Netty 编解码器 `encode-frame`（4-byte length prefix）、`->protocol-encoder`（String → protocol frame）、`->protocol-decoder`（length-prefixed frame → Message），为替换 `ObjectEncoder` / `ObjectDecoder` 做准备；附 6 个 `lein test` 用例覆盖 frame 长度前缀、encoder 输出有效性、decoder 完整/半包读取、HMAC 拒绝、编解码往返。
 
 ### Changed
 

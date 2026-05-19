@@ -70,7 +70,9 @@
 - [x] P0 实现文本消息编码与解码。
 - [x] P0 实现 `HMAC-SHA256` 签名与校验。
 - [x] P0 为 magic/version/length/HMAC 错误增加拒绝逻辑。
-- [ ] P0 替换文本链路中的 Netty `ObjectEncoder` / `ObjectDecoder`。
+- [~] P0 替换文本链路中的 Netty `ObjectEncoder` / `ObjectDecoder`。
+  - [x] 新建 `lan-clip.socket.protocol-codec`，提供 `encode-frame` / `->protocol-encoder` / `->protocol-decoder`。
+  - [ ] 修改 `server.clj` / `client.clj` / `core.clj` 使用新 codec，跑通 localhost 文本同步。
 - [ ] P1 实现图片消息编码与解码，payload 使用 PNG 字节。
 - [ ] P1 实现文件消息编码与解码，第一版使用 zip payload。
 - [ ] P1 服务端限制最大 payload，避免超大消息耗尽内存。
@@ -224,7 +226,7 @@
 5. [x] 给 watcher 增加可停止机制。
 6. [x] 新建 `lan-clip.app`，提供 `start!`、`stop!`、`status`。
 7. [x] 新建 `lan-clip.protocol`，先实现 text message 的新协议和 HMAC。
-8. [ ] 替换 Netty object codec 的文本链路，跑通 localhost 文本同步。
+8. [~] 替换 Netty object codec 的文本链路，跑通 localhost 文本同步。（codec 模块已就绪，待整合）
 9. [ ] 迁移 image 和 files 链路。
 10. [ ] 加入 HTTP 管理 API，为 Tauri 做准备。
 

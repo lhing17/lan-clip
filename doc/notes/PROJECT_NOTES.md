@@ -9,3 +9,4 @@
 #2026-05-19 完成 Phase 1 P0 第四步：新增 `lan-clip.watcher` 命名空间（可停止的 `start-watcher` / `stop-watcher`，基于 `volatile!` + `future-cancel`）及 4 个 `lein test` 用例（回调执行 / 周期性 / 可停止 / 幂等停止）。
 #2026-05-19 完成 Phase 1 P0 第五步：新增 `lan-clip.app` 命名空间（`start!` / `stop!` / `status`，整合配置加载与 watcher 生命周期）及 3 个 `lein test` 用例（启动停止 / 默认配置 / 状态反映）。
 #2026-05-19 完成 Phase 2 P0 第一步：新增 `lan-clip.protocol` 命名空间（二进制协议 / HMAC-SHA256 / magic+version 校验）及 6 个 `lein test` 用例（文本往返 / HMAC 成功 / HMAC 失败 / magic 错误 / version 错误 / 截断消息）。metadata 第一版使用 EDN，避免新增依赖。
+#2026-05-19 完成 Phase 2 P0 第二步：新增 `lan-clip.socket.protocol-codec` 命名空间（Netty 编解码器 / 4-byte length prefix / `->protocol-encoder` / `->protocol-decoder`）及 6 个 `lein test` 用例（frame 长度前缀 / encoder 有效性 / decoder 完整读取 / decoder 半包累积 / HMAC 拒绝 / 往返）。尚未替换 `server.clj` / `client.clj` 中的 ObjectEncoder/ObjectDecoder。
