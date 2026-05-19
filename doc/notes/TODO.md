@@ -91,7 +91,7 @@
 
 目标：避免两端互相回传同一份剪贴板内容，为后续多 peer 做准备。
 
-- [ ] P0 在配置中生成并持久化 `node-id`。
+- [x] P0 在配置中生成并持久化 `node-id`。
 - [ ] P0 每条消息生成 `message-id`。
 - [ ] P0 消息 metadata 携带 `origin-node-id` 和 `sender-node-id`。
 - [ ] P0 增加最近处理消息缓存，按数量或时间淘汰。
