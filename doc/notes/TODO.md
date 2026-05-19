@@ -50,8 +50,8 @@
 - [x] P1 为 clipboard 定义可替换抽象，测试中使用 fake clipboard。
 - [x] P0 将 `set-interval` 改造成可停止 watcher。
 - [x] P0 新建 `src/lan_clip/app.clj`，提供 `start!`、`stop!`、`status`。
-- [ ] P1 将 Netty server、clipboard watcher、client transport 纳入统一生命周期。
-- [ ] P1 退出时释放 server 端口、watcher future、Netty event loop。
+- [x] P1 将 Netty server、clipboard watcher 纳入统一生命周期（`app.clj` `start!`/`stop!`）。
+- [x] P1 退出时释放 server 端口、watcher future、Netty event loop。
 - [ ] P2 删除或下沉 `server.clj` 中未使用的顶层 `config`。
 
 完成标准：
