@@ -67,6 +67,7 @@
 
 (deftest system-clipboard-implements-protocol
   (testing "SystemClipboard 应实现 IClipboard 协议"
+    ;; 仅检查协议实现，不调用 available-flavors / read-clipboard / write-clipboard，
+    ;; 避免在无显示环境（headless Linux/CI）触发 HeadlessException。
     (let [sys (cb/->SystemClipboard)]
-      (is (satisfies? cb/IClipboard sys))
-      (is (seqable? (cb/available-flavors sys))))))
+      (is (satisfies? cb/IClipboard sys)))))
