@@ -23,8 +23,8 @@
 
 目标：清理模板残留，让当前工程具备可信的开发基线。
 
-- [ ] P0 清理模板失败测试：修改 `test/lan_clip/core_test.clj`，删除固定失败断言。
-- [ ] P0 运行 `lein test`，确保基础测试通过。
+- [x] P0 清理模板失败测试：修改 `test/lan_clip/core_test.clj`，删除固定失败断言。
+- [x] P0 运行 `lein test`，确保基础测试通过。
 - [ ] P0 更新 `project.clj` 中的 `:description` 和 `:url`。
 - [ ] P1 清理 `CHANGELOG.md` 模板内容，改为 lan-clip 真实变更骨架。
 - [ ] P1 改写 `doc/intro.md`，作为文档入口并链接到 `doc/notes`。
@@ -217,7 +217,7 @@
 
 先从这 10 项开始：
 
-1. [ ] 清理模板测试，使 `lein test` 通过。
+1. [x] 清理模板测试，使 `lein test` 通过。
 2. [ ] 新建 `lan-clip.config`，集中默认配置、读取、校验。
 3. [ ] 新建 `lan-clip.fingerprint`，迁移 `ClipboardData` 和 MD5 判断。
 4. [ ] 抽象 `lan-clip.clipboard`，封装读取/写入文本、图片、文件列表。
