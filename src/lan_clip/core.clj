@@ -1,6 +1,7 @@
 (ns lan-clip.core
   (:gen-class)
-  (:require [lan-clip.config :as config]
+  (:require [lan-clip.app :as app]
+            [lan-clip.config :as config]
             [lan-clip.socket.client :as client]
             [lan-clip.socket.server :as server]
             [lan-clip.util :as util])
@@ -100,7 +101,9 @@
 
 
 (defn -main [& _]
-  (lan-clip))
+  (let [node-id (UUID/randomUUID)
+        secret-key (:secret-key (config/load-config "config.edn"))]
+    (app/start! "config.edn" (fn [_] (listen-clipboard node-id secret-key)))))
 
 (comment
   (-main),)

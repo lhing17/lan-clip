@@ -58,27 +58,42 @@
       (.printStackTrace cause)
       (.close ctx))))
 
-;; Server 类，代表一个 netty 的服务器端实例
+(defn start-server
+  "启动 Netty server，返回控制对象：
+    :future — 后台 future，server 在此运行
+    :stop!  — 无参函数，调用后关闭 channel 并释放资源"
+  [port secret-key max-frame-size]
+  (let [channel-ref (atom nil)]
+    {:future (future
+               (let [boss-group (NioEventLoopGroup.)
+                     worker-group (NioEventLoopGroup.)
+                     b (ServerBootstrap.)]
+                 (try
+                   (let [^ChannelFuture f
+                         (-> b
+                             (.group boss-group worker-group)
+                             (.channel NioServerSocketChannel)
+                             (.childHandler (proxy [ChannelInitializer]
+                                                   []
+                                              (initChannel [^SocketChannel ch]
+                                                (.. ch (pipeline) (addLast (into-array ChannelHandler
+                                                                                       [(codec/->protocol-decoder secret-key max-frame-size)
+                                                                                        (->handler)]))))))
+                             (.option ChannelOption/SO_BACKLOG (int 1024))
+                             (.bind port)
+                             (.sync))]
+                     (reset! channel-ref (.channel f))
+                     (-> f (.channel) (.closeFuture) (.sync)))
+                   (finally
+                     (.shutdownGracefully boss-group)
+                     (.shutdownGracefully worker-group)))))
+     :stop! (fn []
+              (when-let [ch @channel-ref]
+                (.close ch)))}))
+
+;; Server 类（保留向后兼容，建议新代码使用 start-server）
 (defrecord Server [port secret-key max-frame-size]
   RunnableServer
   (run [this]
-    (let [boss-group (NioEventLoopGroup.)
-          worker-group (NioEventLoopGroup.)
-          b (ServerBootstrap.)]
-      (try
-        (let [^ChannelFuture f
-              (-> b
-                  (.group boss-group worker-group)
-                  (.channel NioServerSocketChannel)
-                  (.childHandler (proxy [ChannelInitializer]
-                                        []
-                                   (initChannel [^SocketChannel ch]
-                                     (.. ch (pipeline) (addLast (into-array ChannelHandler
-                                                                            [(codec/->protocol-decoder secret-key max-frame-size)
-                                                                             (->handler)]))))))
-                  (.option ChannelOption/SO_BACKLOG (int 1024))
-                  (.bind port)
-                  (.sync))]
-          (-> f (.channel) (.closeFuture) (.sync)))
-        (finally (.shutdownGracefully boss-group)
-                 (.shutdownGracefully worker-group))))))
+    (let [ctrl (start-server port secret-key max-frame-size)]
+      @(:future ctrl))))

@@ -1,6 +1,7 @@
 (ns lan-clip.app
   "lan-clip 应用生命周期管理：提供统一的 start!、stop!、status 入口。"
   (:require [lan-clip.config :as config]
+            [lan-clip.socket.server :as server]
             [lan-clip.watcher :as watcher]))
 
 (def ^:private app-state
@@ -27,11 +28,15 @@
                (config/load-config conf-path)
                config/default-config)
          validated (config/validate-config cfg)
-         ctrl (watcher/start-watcher (:interval validated)
-                                     #(clipboard-handler validated))]
+         w-ctrl (watcher/start-watcher (:interval validated)
+                                       #(clipboard-handler validated))
+         s-ctrl (server/start-server (:port validated)
+                                     (:secret-key validated)
+                                     (:max-frame-size validated))]
      (reset! app-state {:running? true
                         :config   validated
-                        :watcher  ctrl})
+                        :watcher  w-ctrl
+                        :server   s-ctrl})
      (status))))
 
 (defn stop!
@@ -40,6 +45,8 @@
   []
   (when-let [st @app-state]
     (when-let [w (:watcher st)]
-      (watcher/stop-watcher w)))
+      (watcher/stop-watcher w))
+    (when-let [s (:server st)]
+      ((:stop! s))))
   (reset! app-state nil)
   (status))

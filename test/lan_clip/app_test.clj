@@ -1,7 +1,8 @@
 (ns lan-clip.app-test
   (:require [clojure.test :refer :all]
             [lan-clip.app :as app])
-  (:import (java.io File)))
+  (:import (java.io File)
+           (java.net Socket)))
 
 (defn- temp-config-path
   "创建临时配置文件，写入给定 EDN 内容后返回绝对路径。"
@@ -59,5 +60,19 @@
         (app/stop!)
         (let [s (app/status)]
           (is (not (:running? s))))
+        (finally
+          (app/stop!))))))
+
+(deftest app-start-includes-server
+  (testing "start! 应启动 Netty server，stop! 应停止 server"
+    (let [port (random-port)
+          path (temp-config-path (str "{:port " port " :interval 100}"))]
+      (try
+        (app/start! path (fn [_] nil))
+        (Thread/sleep 300)
+        (with-open [socket (Socket. "localhost" port)]
+          (is (.isConnected socket)) "Netty server 端口应可连接")
+        (app/stop!)
+        (Thread/sleep 300)
         (finally
           (app/stop!))))))
