@@ -6,7 +6,9 @@
            (io.netty.channel ChannelFuture ChannelOption ChannelInitializer ChannelHandler ChannelInboundHandlerAdapter)
            (io.netty.channel.socket.nio NioSocketChannel)
            (io.netty.channel.socket SocketChannel)
-           (java.awt Image)))
+           (java.awt Image)
+           (java.io File)
+           (java.util List)))
 
 (defprotocol RunnableClient
   (run [this]))
@@ -17,7 +19,9 @@
       []
       (channelActive [ctx]
         (when (or (string? content)
-                  (instance? Image content))
+                  (instance? Image content)
+                  (and (instance? List content)
+                       (every? #(instance? File %) content)))
           (.writeAndFlush ctx content)))
 
       (exceptionCaught [ctx cause]

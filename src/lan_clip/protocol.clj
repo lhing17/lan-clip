@@ -91,6 +91,11 @@
   [^bytes image-bytes origin-node-id sender-node-id secret-key]
   (encode-message :image image-bytes origin-node-id sender-node-id secret-key))
 
+(defn encode-file-list-message
+  "将文件列表消息（zip 字节数组）编码为带 HMAC 签名的二进制字节数组。"
+  [^bytes zip-bytes origin-node-id sender-node-id secret-key]
+  (encode-message :file-list zip-bytes origin-node-id sender-node-id secret-key))
+
 (defn decode-message
   "解码二进制消息并验证 HMAC。验证失败或格式错误时抛 ex-info。"
   [^bytes encoded secret-key]

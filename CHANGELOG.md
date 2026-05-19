@@ -27,6 +27,13 @@
 - `lan-clip.socket.client` 的 `content-handler` 扩展支持 `Image` 内容发送。
 - `lan-clip.core` 重新启用图片剪贴板内容同步。
 - `lan-clip.socket.integration-test` 新增图片往返验证（`BufferedImage` → encoder → decoder → Message `:image`）。
+- `lan-clip.protocol` 新增 `encode-file-list-message`；附 1 个 `lein test` 用例覆盖 file-list 往返。
+- `lan-clip.util` 新增 `files->zip-bytes` 与 `zip-bytes->files`，将文件列表打包/解压为 zip 字节。
+- `lan-clip.socket.protocol-codec` 的 `->protocol-encoder` 扩展支持 `java.util.List` of `java.io.File`（自动转为 zip 字节）；附 1 个 `lein test` 用例覆盖文件列表编码。
+- `lan-clip.socket.server` 的 `:file-list` handler 实现：将 payload zip 字节解压到临时目录并写入系统剪贴板。
+- `lan-clip.socket.client` 的 `content-handler` 扩展支持文件列表内容发送。
+- `lan-clip.core` 重新启用文件剪贴板内容同步。
+- `lan-clip.socket.integration-test` 新增文件列表往返验证（`List<File>` → encoder → decoder → Message `:file-list`）。
 
 ### Changed
 

@@ -31,8 +31,10 @@
         clnt (client/->Client (:target-host conf) (:target-port conf) data secret-key node-id)]
     (future (client/run clnt))))
 
-(defmethod handle-flavor DataFlavor/javaFileListFlavor [_ _ _ _]
-  (println "File sync not yet implemented with new protocol"))
+(defmethod handle-flavor DataFlavor/javaFileListFlavor [clip conf node-id secret-key]
+  (let [data (.getData clip DataFlavor/javaFileListFlavor)
+        clnt (client/->Client (:target-host conf) (:target-port conf) data secret-key node-id)]
+    (future (client/run clnt))))
 
 ;; 用于描述剪贴版上内容的类 信息包括内容类型、长度和内容，其中内容类型包括字符串、图像或文件列表
 ;; 如果类型为字符串或图像，长度为字符串或图像的大小，如果类型为文件列表，长度为文件列表中文件数量（List的长度）

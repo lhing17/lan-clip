@@ -7,7 +7,9 @@
            (io.netty.channel ChannelHandlerContext ChannelPromise ChannelOutboundHandlerAdapter)
            (io.netty.handler.codec ByteToMessageDecoder)
            (java.awt Image)
-           (java.awt.image BufferedImage)))
+           (java.awt.image BufferedImage)
+           (java.io File)
+           (java.util List)))
 
 (defn encode-frame
   "将原始字节数组包装为 4-byte 大端 length prefix 的 ByteBuf。"
@@ -32,6 +34,12 @@
         (let [^BufferedImage bi (if (instance? BufferedImage msg) msg (util/buffered-image msg))
               png-bytes (util/image->bytes bi)
               frame (protocol/encode-image-message png-bytes origin-node-id sender-node-id secret-key)]
+          (.write ctx (encode-frame frame) promise))
+
+        (and (instance? List msg)
+             (every? #(instance? File %) msg))
+        (let [zip-bytes (util/files->zip-bytes msg)
+              frame (protocol/encode-file-list-message zip-bytes origin-node-id sender-node-id secret-key)]
           (.write ctx (encode-frame frame) promise))
 
         :else

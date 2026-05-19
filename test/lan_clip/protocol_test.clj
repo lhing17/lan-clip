@@ -68,3 +68,13 @@
       (is (java.util.Arrays/equals image-bytes ^bytes (:payload decoded)))
       (is (= test-origin-id (:origin-node-id decoded)))
       (is (= test-sender-id (:sender-node-id decoded))))))
+
+(deftest file-list-message-roundtrip
+  (testing "文件列表消息编码后解码应还原原始 zip 字节与 content-type"
+    (let [zip-bytes (byte-array [0x50 0x4B 0x03 0x04]) ;; ZIP magic
+          encoded (protocol/encode-file-list-message zip-bytes test-origin-id test-sender-id test-key)
+          decoded (protocol/decode-message encoded test-key)]
+      (is (= :file-list (:content-type decoded)))
+      (is (java.util.Arrays/equals zip-bytes ^bytes (:payload decoded)))
+      (is (= test-origin-id (:origin-node-id decoded)))
+      (is (= test-sender-id (:sender-node-id decoded))))))

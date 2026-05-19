@@ -33,9 +33,12 @@
         img (util/bytes->image (:payload msg))]
     (.setContents clip (util/->ImageTransferable img) nil)))
 
-(defmethod handle-msg :file-list [_msg]
-  "处理文件列表消息（待 protocol file 编码完成后启用）"
-  (println "File sync not yet implemented with new protocol"))
+(defmethod handle-msg :file-list [msg]
+  "处理文件列表消息，将 payload zip 字节解压到临时目录并写入剪贴板"
+  (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))
+        temp-dir (jio/file (System/getProperty "java.io.tmpdir") (str "lan-clip-" (System/currentTimeMillis)))
+        files (util/zip-bytes->files (:payload msg) temp-dir)]
+    (.setContents clip (util/->FileListTransferable files) nil)))
 
 (defmethod handle-msg :default [msg]
   (println "Unknown content-type:" (:content-type msg)))

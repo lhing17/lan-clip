@@ -6,7 +6,8 @@
            (io.netty.channel ChannelHandler)
            (io.netty.channel.embedded EmbeddedChannel)
            (java.awt.image BufferedImage)
-           (java.util Arrays UUID)
+           (java.io File)
+           (java.util Arrays Collections UUID)
            (lan_clip.protocol Message)))
 
 (def ^:private test-secret "test-secret-key")
@@ -98,6 +99,28 @@
             (let [msg (protocol/decode-message frame-bytes test-secret)]
               (is (= :image (:content-type msg)))
               (is (> (count (:payload msg)) 0) "payload 应非空 PNG 字节")))
+          (finally
+            (.release buf)
+            (.finish ch)))))))
+
+(deftest protocol-encoder-handles-file-list
+  (testing "->protocol-encoder 应将文件列表编码为 file-list protocol frame"
+    (let [temp-file (doto (File/createTempFile "test" ".txt")
+                      (.deleteOnExit))
+          _ (spit temp-file "file list test content")
+          files (Collections/singletonList temp-file)
+          ch (EmbeddedChannel. (into-array ChannelHandler [(codec/->protocol-encoder test-origin test-sender test-secret)]))]
+      (.writeOutbound ch (into-array Object [files]))
+      (let [^ByteBuf buf (.readOutbound ch)]
+        (try
+          (is (instance? ByteBuf buf))
+          (let [frame-len (.readInt buf)
+                frame-bytes (byte-array frame-len)]
+            (.readBytes buf frame-bytes)
+            (is (= 0 (.readableBytes buf)))
+            (let [msg (protocol/decode-message frame-bytes test-secret)]
+              (is (= :file-list (:content-type msg)))
+              (is (> (count (:payload msg)) 0) "payload 应非空 zip 字节")))
           (finally
             (.release buf)
             (.finish ch)))))))
