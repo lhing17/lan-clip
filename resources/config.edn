@@ -1,4 +1,7 @@
-{:target-host "192.168.1.181"
- :file-size 4096}
-;;{:target-host "localhost"}
+;; lan-clip 示例配置。请按需修改，不要把真实局域网 IP 或共享密钥提交到仓库。
+;; - :target-host  对端设备的局域网 IP；默认 localhost 用于同机自测，联机时改成对端 IP。
+;; - :file-size    允许同步的最大文件总大小，单位 KB；超过则该次复制不发送。
+;; 其余字段（如 :port、:target-port、:interval）若未设置，将使用 src/lan_clip/core.clj 中的默认值。
 
+{:target-host "localhost"
+ :file-size 4096}
