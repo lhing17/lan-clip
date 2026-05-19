@@ -30,7 +30,7 @@
 - [x] P1 改写 `doc/intro.md`，作为文档入口并链接到 `doc/notes`。
 - [x] P1 梳理 `.gitignore`，确认忽略 `.DS_Store`、IDE、本地缓存、构建产物。
 - [x] P1 确认 `resources/config.edn` 示例配置不包含个人局域网 IP 或敏感信息。
-- [ ] P2 补充 README 中的当前运行限制和安全提示。
+- [x] P2 补充 README 中的当前运行限制和安全提示。
 
 完成标准：
 
