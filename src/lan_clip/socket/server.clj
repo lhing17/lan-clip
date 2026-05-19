@@ -63,7 +63,7 @@
     :future — 后台 future，server 在此运行
     :stop!  — 无参函数，调用后关闭 channel 并释放资源"
   [port secret-key max-frame-size]
-  (let [channel-ref (atom nil)]
+  (let [channel-promise (promise)]
     {:future (future
                (let [boss-group (NioEventLoopGroup.)
                      worker-group (NioEventLoopGroup.)
@@ -82,14 +82,15 @@
                              (.option ChannelOption/SO_BACKLOG (int 1024))
                              (.bind port)
                              (.sync))]
-                     (reset! channel-ref (.channel f))
+                     (deliver channel-promise (.channel f))
                      (-> f (.channel) (.closeFuture) (.sync)))
                    (finally
                      (.shutdownGracefully boss-group)
                      (.shutdownGracefully worker-group)))))
      :stop! (fn []
-              (when-let [ch @channel-ref]
-                (.close ch)))}))
+              (let [ch (deref channel-promise 10000 nil)]
+                (when ch
+                  (.close ch))))}))
 
 ;; Server 类（保留向后兼容，建议新代码使用 start-server）
 (defrecord Server [port secret-key max-frame-size]

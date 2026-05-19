@@ -76,3 +76,21 @@
         (Thread/sleep 300)
         (finally
           (app/stop!))))))
+
+(deftest app-double-start-is-idempotent
+  (testing "重复启动应先停止旧实例再启动新实例，不泄漏端口"
+    (let [port (random-port)
+          path (temp-config-path (str "{:port " port " :interval 50}"))]
+      (try
+        (app/start! path (fn [_] nil))
+        (Thread/sleep 200)
+        ;; 重复启动：旧实例应先被停止，新实例绑定同一端口
+        (let [restarted (app/start! path (fn [_] nil))]
+          (is (:running? restarted))
+          (is (= port (:port (:config restarted)))))
+        (Thread/sleep 200)
+        (with-open [socket (Socket. "localhost" port)]
+          (is (.isConnected socket)) "重复启动后端口仍应可连接")
+        (app/stop!)
+        (finally
+          (app/stop!))))))

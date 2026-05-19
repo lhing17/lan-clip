@@ -16,6 +16,8 @@
                             [:port :target-host :target-port :interval])}
     {:running? false}))
 
+(declare stop!)
+
 (defn start!
   "启动 lan-clip 应用。
   - conf-path: 配置文件路径字符串；传 nil 时使用默认配置。
@@ -24,6 +26,8 @@
   ([clipboard-handler]
    (start! nil clipboard-handler))
   ([conf-path clipboard-handler]
+   (when @app-state
+     (stop!))
    (let [cfg (if (and conf-path (seq conf-path))
                (config/load-config conf-path)
                config/default-config)
