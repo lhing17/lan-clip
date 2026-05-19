@@ -1,6 +1,6 @@
 (defproject lan-clip "1.0"
-  :description "FIXME: write description"
-  :url "http://example.com/FIXME"
+  :description "lan-clip: 局域网剪贴板同步工具，在同一局域网内的多台设备间互传文本、图片、文件。"
+  :url "https://github.com/lhing17/lan-clip"
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure "1.11.1"]
