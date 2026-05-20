@@ -37,7 +37,7 @@
           node-id-b (UUID/randomUUID)]
       ;; 拦截 handle-msg，将写入导向各自的 fake clipboard
       (with-redefs [server/handle-msg
-                    (fn [msg]
+                    (fn [msg & _]
                       (case (:content-type msg)
                         :text (let [text (String. ^bytes (:payload msg) "UTF-8")]
                                 (reset! clip-b text)
@@ -57,7 +57,7 @@
             ;; 反向：B 向 A 发送文本
             ;; 重新绑定 clip-a 为接收端
             (with-redefs [server/handle-msg
-                          (fn [msg]
+                          (fn [msg & _]
                             (case (:content-type msg)
                               :text (let [text (String. ^bytes (:payload msg) "UTF-8")]
                                       (reset! clip-a text)

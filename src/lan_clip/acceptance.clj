@@ -27,7 +27,7 @@
         received (atom nil)
         node-id (UUID/randomUUID)]
     (with-redefs [server/handle-msg
-                  (fn [msg]
+                  (fn [msg & _]
                     (case (:content-type msg)
                       :text (let [text (String. ^bytes (:payload msg) "UTF-8")]
                               (reset! received text)
