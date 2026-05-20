@@ -22,7 +22,7 @@
 (deftest app-can-start-and-stop
   (testing "应用应能启动和停止，状态正确变化，回调被调用"
     (let [counter (atom 0)
-          handler (fn [_] (swap! counter inc))
+          handler (fn [_ _] (swap! counter inc))
           port (random-port)
           path (temp-config-path (str "{:port " port " :interval 50}"))]
       (try
@@ -38,7 +38,7 @@
 
 (deftest app-uses-default-config
   (testing "不传配置文件时应使用默认配置"
-    (let [handler (fn [_] nil)]
+    (let [handler (fn [_ _] nil)]
       (try
         (let [started (app/start! nil handler)]
           (is (:running? started))
@@ -52,7 +52,7 @@
     (let [port (random-port)
           path (temp-config-path (str "{:port " port " :interval 100}"))]
       (try
-        (app/start! path (fn [_] nil))
+        (app/start! path (fn [_ _] nil))
         (let [s (app/status)]
           (is (:running? s))
           (is (contains? (:config s) :port))
@@ -69,7 +69,7 @@
     (let [port (random-port)
           path (temp-config-path (str "{:port " port " :interval 100}"))]
       (try
-        (app/start! path (fn [_] nil))
+        (app/start! path (fn [_ _] nil))
         (Thread/sleep 300)
         (with-open [socket (Socket. "localhost" port)]
           (is (.isConnected socket)) "Netty server 端口应可连接")
@@ -83,10 +83,10 @@
     (let [port (random-port)
           path (temp-config-path (str "{:port " port " :interval 50}"))]
       (try
-        (app/start! path (fn [_] nil))
+        (app/start! path (fn [_ _] nil))
         (Thread/sleep 200)
         ;; 重复启动：旧实例应先被停止，新实例绑定同一端口
-        (let [restarted (app/start! path (fn [_] nil))]
+        (let [restarted (app/start! path (fn [_ _] nil))]
           (is (:running? restarted))
           (is (= port (:port (:config restarted)))))
         (Thread/sleep 200)
@@ -103,7 +103,7 @@
           node-id (UUID/randomUUID)
           secret "app-test-secret"]
       (try
-        (app/start! path (fn [_] nil))
+        (app/start! path (fn [_ _] nil))
         (Thread/sleep 300)
         (is (nil? (app/last-remote-fingerprint)) "启动后应为 nil")
         ;; 通过 socket 发送一条文本消息

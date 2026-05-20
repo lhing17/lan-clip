@@ -29,7 +29,7 @@
 (defn start!
   "启动 lan-clip 应用。
   - conf-path: 配置文件路径字符串；传 nil 时使用默认配置。
-  - clipboard-handler: 每次轮询触发的回调，签名为 (fn [config]) -> nil
+  - clipboard-handler: 每次轮询触发的回调，签名为 (fn [config last-remote-fp]) -> nil
   返回当前状态 map（含 :running? 与 :config）。"
   ([clipboard-handler]
    (start! nil clipboard-handler))
@@ -41,7 +41,7 @@
                config/default-config)
          validated (config/validate-config cfg)
          w-ctrl (watcher/start-watcher (:interval validated)
-                                       #(clipboard-handler validated))
+                                       #(clipboard-handler validated last-remote-fp))
          s-ctrl (server/start-server (:port validated)
                                      (:secret-key validated)
                                      (:max-frame-size validated)
