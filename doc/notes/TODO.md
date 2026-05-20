@@ -153,11 +153,11 @@
 
 目标：构建第一版桌面应用壳，管理 sidecar 并提供基本 UI。
 
-- [ ] P0 初始化 Tauri v2 工程：`src-tauri`。
-- [ ] P0 初始化前端工程。建议 Vite + TypeScript。
-- [ ] P0 决定前端框架：React 或 Svelte。
-- [ ] P0 配置 Tauri sidecar，打包 `lan-clip-core`。
-- [ ] P0 Rust 后端实现 sidecar 启动、停止、状态检测。
+- [x] P0 初始化 Tauri v2 工程：`src-tauri`（`ui/` 目录，React + TypeScript）。
+- [x] P0 初始化前端工程。Vite + TypeScript。
+- [x] P0 决定前端框架：React + TypeScript。
+- [~] P0 配置 Tauri sidecar，打包 `lan-clip-core`（占位结构已配置，待接入 uberjar 打包）。
+- [x] P0 Rust 后端实现 sidecar 启动、停止、状态检测（占位实现，待接入真实进程）。
 - [ ] P0 主窗口实现状态页：同步开关、节点名、监听端口、sidecar 状态。
 - [ ] P0 主窗口实现配置页：设备名、端口、peers、共享密钥、轮询间隔、文件大小、接收目录。
 - [ ] P1 主窗口实现日志页：最近事件、错误详情、打开日志目录。

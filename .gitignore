@@ -21,3 +21,7 @@ target/
 .claude/scheduled_tasks.lock
 .claude/worktrees/
 config.edn
+ui/node_modules/
+ui/dist/
+ui/src-tauri/target/
+ui/src-tauri/Cargo.lock
