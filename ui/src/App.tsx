@@ -13,6 +13,7 @@ import {
   type LogEntry,
 } from "./api";
 import { openPath } from "@tauri-apps/plugin-opener";
+import { notifyError } from "./notifications";
 import "./App.css";
 
 interface AppState {
@@ -99,10 +100,9 @@ function App() {
       }
       await refresh();
     } catch (e) {
-      setState((prev) => ({
-        ...prev,
-        error: e instanceof Error ? e.message : String(e),
-      }));
+      const msg = e instanceof Error ? e.message : String(e);
+      setState((prev) => ({ ...prev, error: msg }));
+      notifyError("Sidecar 启动失败", msg);
     } finally {
       setLoading(false);
     }
@@ -119,10 +119,9 @@ function App() {
       }
       await refresh();
     } catch (e) {
-      setState((prev) => ({
-        ...prev,
-        error: e instanceof Error ? e.message : String(e),
-      }));
+      const msg = e instanceof Error ? e.message : String(e);
+      setState((prev) => ({ ...prev, error: msg }));
+      notifyError("同步错误", msg);
     } finally {
       setLoading(false);
     }

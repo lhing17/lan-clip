@@ -14,6 +14,10 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn().mockResolvedValue(() => {}),
 }));
 
+vi.mock("./notifications", () => ({
+  notifyError: vi.fn(),
+}));
+
 vi.mock("./api", async () => {
   const actual = await vi.importActual<typeof import("./api")>("./api");
   return {
@@ -29,6 +33,7 @@ vi.mock("./api", async () => {
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 import { listen } from "@tauri-apps/api/event";
+import { notifyError } from "./notifications";
 import { fetchRecentLogs, fetchSidecarStatus, fetchSidecarConfig, startSync, stopSync } from "./api";
 
 describe("App logs tab", () => {
@@ -181,6 +186,38 @@ describe("App tray sync toggle", () => {
 
     await waitFor(() => {
       expect(startSync).toHaveBeenCalled();
+    });
+  });
+});
+
+describe("App notifications", () => {
+  beforeEach(() => {
+    vi.mocked(invoke).mockResolvedValue(true);
+    vi.mocked(fetchSidecarStatus).mockResolvedValue({
+      running: false,
+      nodeId: "test-node",
+    });
+    vi.mocked(fetchSidecarConfig).mockResolvedValue({ port: 9002 });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("sends notification when sidecar start fails", async () => {
+    vi.mocked(invoke).mockRejectedValue(new Error("port in use"));
+
+    render(<App />);
+
+    await waitFor(() =>
+      expect(document.body.textContent).toContain("Sidecar 状态")
+    );
+
+    const btn = screen.getByText("启动 Sidecar");
+    fireEvent.click(btn);
+
+    await waitFor(() => {
+      expect(notifyError).toHaveBeenCalledWith("Sidecar 启动失败", "port in use");
     });
   });
 });
