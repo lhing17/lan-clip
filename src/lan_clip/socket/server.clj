@@ -27,6 +27,7 @@
   (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))
         text (String. ^bytes (:payload msg) "UTF-8")]
     (.setContents clip (StringSelection. text) nil)
+    (println "remote-apply: text")
     (fingerprint/fingerprint DataFlavor/stringFlavor text)))
 
 (defmethod handle-msg :image [msg]
@@ -34,6 +35,7 @@
   (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))
         img (util/bytes->image (:payload msg))]
     (.setContents clip (util/->ImageTransferable img) nil)
+    (println "remote-apply: image")
     (fingerprint/fingerprint DataFlavor/imageFlavor img)))
 
 (defmethod handle-msg :file-list [msg]
@@ -42,6 +44,7 @@
         temp-dir (jio/file (System/getProperty "java.io.tmpdir") (str "lan-clip-" (System/currentTimeMillis)))
         files (util/zip-bytes->files (:payload msg) temp-dir)]
     (.setContents clip (util/->FileListTransferable files) nil)
+    (println "remote-apply: file-list")
     (fingerprint/fingerprint DataFlavor/javaFileListFlavor files)))
 
 (defmethod handle-msg :default [msg]

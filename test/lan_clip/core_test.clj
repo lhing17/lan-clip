@@ -41,3 +41,32 @@
           (#'lan-clip.core/listen-clipboard node-id secret-key last-remote-fp)
           (is (true? @sent) "应发送")
           (is (= (:contents (get-clip-data clip nil)) (:contents @clip-data))))))))
+
+(deftest listen-clipboard-logs-local-change
+  (testing "本地剪贴板变化时应输出 local-change"
+    (let [node-id (UUID/randomUUID)
+          secret-key "test-secret"
+          last-remote-fp (atom nil)]
+      (reset! clip-data nil)
+      (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))]
+        (.setContents clip (StringSelection. "local change log") nil)
+        (with-redefs [handle-flavor (fn [& _] nil)]
+          (let [output (with-out-str
+                         (#'lan-clip.core/listen-clipboard node-id secret-key last-remote-fp))]
+            (is (re-find #"local-change" output) "应包含 local-change 日志")))))))
+
+(deftest listen-clipboard-logs-loop-suppressed
+  (testing "回环抑制时应输出 loop-suppressed"
+    (let [node-id (UUID/randomUUID)
+          secret-key "test-secret"
+          last-remote-fp (atom nil)]
+      (reset! clip-data nil)
+      (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))
+            text "loop suppressed log"]
+        (.setContents clip (StringSelection. text) nil)
+        (let [fp (get-clip-data clip nil)]
+          (reset! last-remote-fp fp)
+          (with-redefs [handle-flavor (fn [& _] nil)]
+            (let [output (with-out-str
+                           (#'lan-clip.core/listen-clipboard node-id secret-key last-remote-fp))]
+              (is (re-find #"loop-suppressed" output) "应包含 loop-suppressed 日志"))))))))

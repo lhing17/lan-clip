@@ -64,6 +64,33 @@
       (is (= 1 (:length result)))
       (is (string? (:contents result))))))
 
+(deftest handle-msg-text-logs-remote-apply
+  (testing "handle-msg :text 应输出 remote-apply 日志"
+    (let [output (with-out-str
+                   (server/handle-msg {:content-type :text :payload (.getBytes "remote text" "UTF-8")}))]
+      (is (re-find #"remote-apply" output) "应包含 remote-apply 日志")
+      (is (re-find #"text" output) "应包含内容类型 text"))))
+
+(deftest handle-msg-image-logs-remote-apply
+  (testing "handle-msg :image 应输出 remote-apply 日志"
+    (let [img (BufferedImage. 2 2 BufferedImage/TYPE_INT_ARGB)
+          png-bytes (util/image->bytes img)
+          output (with-out-str
+                   (server/handle-msg {:content-type :image :payload png-bytes}))]
+      (is (re-find #"remote-apply" output) "应包含 remote-apply 日志")
+      (is (re-find #"image" output) "应包含内容类型 image"))))
+
+(deftest handle-msg-file-list-logs-remote-apply
+  (testing "handle-msg :file-list 应输出 remote-apply 日志"
+    (let [temp-file (doto (File/createTempFile "test" ".txt") (.deleteOnExit))
+          _ (spit temp-file "file content")
+          files (Collections/singletonList temp-file)
+          zip-bytes (util/files->zip-bytes files)
+          output (with-out-str
+                   (server/handle-msg {:content-type :file-list :payload zip-bytes}))]
+      (is (re-find #"remote-apply" output) "应包含 remote-apply 日志")
+      (is (re-find #"file-list" output) "应包含内容类型 file-list"))))
+
 (deftest server-on-apply-fired-for-remote-message
   (testing "server 收到消息后应调用 on-apply 回调并传入指纹"
     (let [port (random-port)

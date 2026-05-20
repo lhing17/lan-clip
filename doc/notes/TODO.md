@@ -97,7 +97,7 @@
 - [x] P0 增加最近处理消息缓存，按数量 LRU 淘汰。
 - [x] P0 远端写入剪贴板后记录 `last-remote-fingerprint`。
 - [x] P1 watcher 识别远端刚写入的内容并抑制回发。
-- [~] P1 日志区分 `local-change`、`remote-apply`、`loop-suppressed`。
+- [x] P1 日志区分 `local-change`、`remote-apply`、`loop-suppressed`。
 - [ ] P1 增加双端 localhost 手工或自动验收脚本。
 
 完成标准：

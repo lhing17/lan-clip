@@ -24,7 +24,6 @@
 (defmethod handle-flavor DataFlavor/stringFlavor [clip conf node-id secret-key]
   (let [data (.getData clip DataFlavor/stringFlavor)
         clnt (client/->Client (:target-host conf) (:target-port conf) data secret-key node-id)]
-    (println data)
     (future (client/run clnt))))
 
 (defmethod handle-flavor DataFlavor/imageFlavor [clip conf node-id secret-key]
@@ -95,6 +94,12 @@
             (println "loop-suppressed"))
           (do
             (reset! clip-data new-clip-data)
+            (println "local-change:"
+                     (condp = (:flavor new-clip-data)
+                       DataFlavor/stringFlavor "text"
+                       DataFlavor/imageFlavor "image"
+                       DataFlavor/javaFileListFlavor "file-list"
+                       "unknown"))
             (handle-flavor clip conf node-id secret-key)))))))
 
 (defn lan-clip []
