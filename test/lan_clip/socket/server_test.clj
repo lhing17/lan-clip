@@ -116,3 +116,25 @@
         (finally
           ((:stop! ctrl))
           (Thread/sleep 200))))))
+
+(deftest handle-msg-file-list-creates-batch-dir
+  (testing "handle-msg :file-list 应在 received-files-dir 下创建批次目录 yyyyMMdd-HHmmss-message-id"
+    (let [received-dir (doto (File/createTempFile "received" "") (.delete))
+          temp-file (doto (File/createTempFile "test" ".txt") (.deleteOnExit))
+          _ (spit temp-file "batch dir test")
+          files (Collections/singletonList temp-file)
+          zip-bytes (util/files->zip-bytes files)
+          msg-id (UUID/randomUUID)
+          msg {:content-type :file-list :payload zip-bytes :message-id msg-id}
+          result (server/handle-msg msg (.getAbsolutePath received-dir))]
+      (try
+        (is (instance? ClipboardData result))
+        (is (.exists received-dir) "received-files-dir 应被创建")
+        (let [batch-dirs (.listFiles received-dir)]
+          (is (= 1 (count batch-dirs)) "应只有一个批次目录")
+          (let [batch-name (.getName (first batch-dirs))]
+            (is (re-find #"^\d{8}-\d{6}-" batch-name) "批次目录名应以 yyyyMMdd-HHmmss- 开头")
+            (is (.endsWith batch-name (str msg-id)) "批次目录名应以 message-id 结尾")))
+        (finally
+          (when (.exists received-dir)
+            (org.apache.commons.io.FileUtils/deleteDirectory received-dir)))))))
