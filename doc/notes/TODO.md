@@ -138,7 +138,7 @@
 - [x] P0 实现 `POST /sync/start`。
 - [x] P0 实现 `POST /sync/stop`。
 - [ ] P1 实现 `GET /logs/recent`。
-- [ ] P1 sidecar 启动成功后输出 ready 标记。
+- [x] P1 sidecar 启动成功后输出 ready 标记。
 - [ ] P1 日志落盘，路径可通过状态或配置查询。
 - [x] P1 配置变更区分热更新和需重启。
 - [ ] P2 增加健康检查和版本接口：`GET /version` 或并入 `/status`。

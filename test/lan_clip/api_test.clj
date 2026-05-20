@@ -2,6 +2,7 @@
   (:require [clojure.test :refer :all]
             [lan-clip.api :as api]
             [lan-clip.app :as app]
+            [lan-clip.log :as log]
             [org.httpkit.client :as http])
   (:import (java.net ServerSocket)))
 
@@ -178,6 +179,48 @@
           (is (= 200 status))
           (is (:success? parsed))
           (is (not (:restart-required? parsed)) "发送相同端口值不应提示需重启"))
+        (finally
+          (api/stop-api-server server)
+          (Thread/sleep 200))))))
+
+(deftest api-logs-recent-returns-log-entries
+  (testing "GET /logs/recent 应返回最近日志条目"
+    (log/clear-logs!)
+    (log/log! :info "test-log-entry-1")
+    (log/log! :warn "test-log-entry-2")
+    (let [port (random-port)
+          server (api/start-api-server port)]
+      (try
+        (Thread/sleep 200)
+        (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/logs/recent"))
+              body-str (slurp body)
+              parsed (clojure.edn/read-string body-str)]
+          (is (= 200 status))
+          (is (vector? parsed))
+          (is (= 2 (count parsed)))
+          (is (= :warn (:level (first parsed))) "最新条目应在最前")
+          (is (= "test-log-entry-2" (:msg (first parsed))))
+          (is (= :info (:level (second parsed))))
+          (is (= "test-log-entry-1" (:msg (second parsed))))
+          (is (contains? (first parsed) :time)))
+        (finally
+          (api/stop-api-server server)
+          (Thread/sleep 200))))))
+
+(deftest api-logs-recent-respects-limit
+  (testing "GET /logs/recent 应限制返回数量"
+    (log/clear-logs!)
+    (dotimes [_ 110]
+      (log/log! :info "bulk-entry"))
+    (let [port (random-port)
+          server (api/start-api-server port)]
+      (try
+        (Thread/sleep 200)
+        (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/logs/recent"))
+              body-str (slurp body)
+              parsed (clojure.edn/read-string body-str)]
+          (is (= 200 status))
+          (is (= 100 (count parsed)) "默认最多返回 100 条"))
         (finally
           (api/stop-api-server server)
           (Thread/sleep 200))))))

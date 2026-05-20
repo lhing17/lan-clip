@@ -5,7 +5,8 @@
             [org.httpkit.server :as hk]
             [lan-clip.app :as app]
             [lan-clip.config :as config]
-            [lan-clip.core :as core]))
+            [lan-clip.core :as core]
+            [lan-clip.log :as log]))
 
 (def ^:private config-path-atom
   "配置文件的默认路径，可通过 set-config-path! 修改（主要用于测试）。"
@@ -63,6 +64,11 @@
     {:status 200
      :headers {"Content-Type" "application/edn"}
      :body (pr-str (app/stop!))}
+
+    [:get "/logs/recent"]
+    {:status 200
+     :headers {"Content-Type" "application/edn"}
+     :body (pr-str (log/recent-logs))}
 
     {:status 404
      :headers {"Content-Type" "text/plain"}
