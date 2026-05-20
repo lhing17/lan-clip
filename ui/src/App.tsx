@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
+import { listen } from "@tauri-apps/api/event";
 import {
   fetchSidecarStatus,
   fetchSidecarConfig,
@@ -72,6 +73,21 @@ function App() {
     const id = setInterval(refresh, 3000);
     return () => clearInterval(id);
   }, [refresh]);
+
+  const toggleSyncRef = useRef(toggleSync);
+  toggleSyncRef.current = toggleSync;
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen("tray-sync-toggle", () => {
+      toggleSyncRef.current();
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
 
   async function toggleSidecar() {
     setLoading(true);

@@ -3,7 +3,7 @@
 use std::sync::Mutex;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 /// Sidecar 进程句柄，用于管理 Clojure 后端生命周期。
 /// 当前为占位实现，后续将接入真实的进程启动/停止逻辑。
@@ -146,9 +146,10 @@ pub fn run() {
 
             // 创建托盘菜单
             let open_i = MenuItem::new(app, "打开窗口", true, None::<&str>)?;
+            let toggle_sync_i = MenuItem::new(app, "切换同步", true, None::<&str>)?;
             let open_dir_i = MenuItem::new(app, "打开接收目录", true, None::<&str>)?;
             let quit_i = MenuItem::new(app, "退出", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open_i, &open_dir_i, &quit_i])?;
+            let menu = Menu::with_items(app, &[&open_i, &toggle_sync_i, &open_dir_i, &quit_i])?;
 
             TrayIconBuilder::new()
                 .menu(&menu)
@@ -159,6 +160,9 @@ pub fn run() {
                                 let _ = window.show();
                                 let _ = window.set_focus();
                             }
+                        }
+                        id if id == toggle_sync_i.id().as_ref() => {
+                            let _ = app_handle.emit("tray-sync-toggle", ());
                         }
                         id if id == open_dir_i.id().as_ref() => {
                             if let Ok(dir) = received_files_dir() {
