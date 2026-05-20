@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import {
   fetchSidecarStatus,
   fetchSidecarConfig,
@@ -21,7 +22,7 @@ interface AppState {
   error: string | null;
 }
 
-type Tab = "status" | "config" | "logs";
+type Tab = "status" | "config" | "logs" | "about";
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>("status");
@@ -141,6 +142,12 @@ function App() {
         >
           日志
         </button>
+        <button
+          className={activeTab === "about" ? "tab-active" : "tab"}
+          onClick={() => setActiveTab("about")}
+        >
+          关于
+        </button>
       </nav>
 
       {activeTab === "status" && (
@@ -196,6 +203,7 @@ function App() {
       )}
       {activeTab === "config" && <ConfigPage />}
       {activeTab === "logs" && <LogsPage />}
+      {activeTab === "about" && <AboutPage />}
     </main>
   );
 }
@@ -323,6 +331,38 @@ function ConfigPage() {
           {saving ? "保存中..." : "保存配置"}
         </button>
       </form>
+    </section>
+  );
+}
+
+function AboutPage() {
+  const [version, setVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    getVersion()
+      .then((v) => setVersion(v))
+      .catch(() => setVersion(null));
+  }, []);
+
+  return (
+    <section className="card">
+      <h2>关于 lan-clip</h2>
+      <div className="status-row">
+        <span className="status-label">应用版本</span>
+        <span className="status-value">{version ?? "—"}</span>
+      </div>
+      <div className="status-row">
+        <span className="status-label">协议版本</span>
+        <span className="status-value">1</span>
+      </div>
+      <button
+        className="toggle-btn"
+        onClick={() => {
+          alert("检查更新功能即将推出");
+        }}
+      >
+        检查更新
+      </button>
     </section>
   );
 }

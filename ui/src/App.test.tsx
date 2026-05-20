@@ -6,6 +6,10 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
 
+vi.mock("@tauri-apps/api/app", () => ({
+  getVersion: vi.fn(),
+}));
+
 vi.mock("./api", async () => {
   const actual = await vi.importActual<typeof import("./api")>("./api");
   return {
@@ -17,6 +21,7 @@ vi.mock("./api", async () => {
 });
 
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import { fetchRecentLogs, fetchSidecarStatus, fetchSidecarConfig } from "./api";
 
 describe("App logs tab", () => {
@@ -69,5 +74,40 @@ describe("App logs tab", () => {
     await waitFor(() => {
       expect(document.body.textContent).toContain("暂无日志");
     });
+  });
+});
+
+describe("App about tab", () => {
+  beforeEach(() => {
+    vi.mocked(invoke).mockResolvedValue(true);
+    vi.mocked(getVersion).mockResolvedValue("1.0.0");
+    vi.mocked(fetchSidecarStatus).mockResolvedValue({
+      running: true,
+      nodeId: "test-node",
+    });
+    vi.mocked(fetchSidecarConfig).mockResolvedValue({ port: 9002 });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows about info after clicking 关于 tab", async () => {
+    render(<App />);
+
+    await waitFor(() =>
+      expect(document.body.textContent).toContain("节点名")
+    );
+
+    fireEvent.click(screen.getByText("关于"));
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain("lan-clip");
+    });
+
+    expect(document.body.textContent).toContain("版本");
+    expect(document.body.textContent).toContain("协议版本");
+    expect(document.body.textContent).toContain("1.0.0");
+    expect(document.body.textContent).toContain("检查更新");
   });
 });
