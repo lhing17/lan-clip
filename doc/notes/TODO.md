@@ -95,9 +95,9 @@
 - [x] P0 每条消息生成 `message-id`（`protocol.clj` `encode-message` 中已生成 UUID）。
 - [x] P0 消息 header 已携带 `origin-node-id` 和 `sender-node-id`；metadata 当前仅含 `:content-type`，后续如需扩展可在 P1 补充。
 - [x] P0 增加最近处理消息缓存，按数量 LRU 淘汰。
-- [ ] P0 远端写入剪贴板后记录 `last-remote-fingerprint`。
-- [ ] P1 watcher 识别远端刚写入的内容并抑制回发。
-- [ ] P1 日志区分 `local-change`、`remote-apply`、`loop-suppressed`。
+- [x] P0 远端写入剪贴板后记录 `last-remote-fingerprint`。
+- [x] P1 watcher 识别远端刚写入的内容并抑制回发。
+- [~] P1 日志区分 `local-change`、`remote-apply`、`loop-suppressed`。
 - [ ] P1 增加双端 localhost 手工或自动验收脚本。
 
 完成标准：
