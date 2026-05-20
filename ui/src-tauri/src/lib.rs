@@ -14,9 +14,10 @@ impl Default for SidecarState {
     }
 }
 
+/// 返回 sidecar HTTP API 端口（当前固定为 9615）。
 #[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
+fn sidecar_port() -> Result<u16, String> {
+    Ok(9615)
 }
 
 /// 启动 Clojure sidecar（占位实现）。
@@ -51,6 +52,11 @@ mod tests {
         let state = SidecarState::default();
         assert!(!state.running);
     }
+
+    #[test]
+    fn sidecar_port_returns_9615() {
+        assert_eq!(sidecar_port().unwrap(), 9615);
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -58,7 +64,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(Mutex::new(SidecarState::default()))
-        .invoke_handler(tauri::generate_handler![greet, sidecar_start, sidecar_stop, sidecar_status])
+        .invoke_handler(tauri::generate_handler![sidecar_start, sidecar_stop, sidecar_status, sidecar_port])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

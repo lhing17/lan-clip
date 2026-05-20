@@ -32,7 +32,17 @@
   [cfg]
   (dissoc cfg :secret-key))
 
-(defn- handler [req]
+(def ^:private cors-headers
+  {"Access-Control-Allow-Origin" "*"
+   "Access-Control-Allow-Methods" "GET, POST, PUT, OPTIONS"
+   "Access-Control-Allow-Headers" "Content-Type"})
+
+(defn- with-cors
+  "为响应 map 添加 CORS 头。"
+  [response]
+  (update response :headers merge cors-headers))
+
+(defn- handler* [req]
   (case [(:request-method req) (:uri req)]
     [:get "/status"]
     {:status 200
@@ -99,6 +109,11 @@
         {:status 404
          :headers {"Content-Type" "text/plain"}
          :body "Not Found"}))))
+
+(defn- handler [req]
+  (if (= :options (:request-method req))
+    (with-cors {:status 204})
+    (with-cors (handler* req))))
 
 (defn start-api-server
   "启动 HTTP API server，返回 server 对象（一个可调用的停止函数）。"

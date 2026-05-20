@@ -306,3 +306,30 @@
         (finally
           (api/stop-api-server server)
           (Thread/sleep 200))))))
+
+(deftest api-cors-headers-present
+  (testing "OPTIONS 预检请求应返回 204 并带 CORS 头"
+    (let [port (random-port)
+          server (api/start-api-server port)]
+      (try
+        (Thread/sleep 200)
+        (let [{:keys [status headers]} @(http/options (str "http://localhost:" port "/status"))]
+          (is (= 204 status))
+          (is (= "*" (:access-control-allow-origin headers)))
+          (is (string? (:access-control-allow-methods headers))))
+        (finally
+          (api/stop-api-server server)
+          (Thread/sleep 200))))))
+
+(deftest api-get-includes-cors-headers
+  (testing "GET 响应应包含 CORS 头"
+    (let [port (random-port)
+          server (api/start-api-server port)]
+      (try
+        (Thread/sleep 200)
+        (let [{:keys [status headers]} @(http/get (str "http://localhost:" port "/status"))]
+          (is (= 200 status))
+          (is (= "*" (:access-control-allow-origin headers))))
+        (finally
+          (api/stop-api-server server)
+          (Thread/sleep 200))))))

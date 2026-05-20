@@ -1,49 +1,166 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
+import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import {
+  fetchSidecarStatus,
+  fetchSidecarConfig,
+  startSync,
+  stopSync,
+} from "./api";
 import "./App.css";
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+interface AppState {
+  sidecarRunning: boolean;
+  syncRunning: boolean;
+  nodeId: string | null;
+  listenPort: number | null;
+  error: string | null;
+}
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
+function App() {
+  const [state, setState] = useState<AppState>({
+    sidecarRunning: false,
+    syncRunning: false,
+    nodeId: null,
+    listenPort: null,
+    error: null,
+  });
+  const [loading, setLoading] = useState(false);
+
+  const refresh = useCallback(async () => {
+    try {
+      const sidecarRunning = await invoke<boolean>("sidecar_status");
+      setState((prev) => ({ ...prev, sidecarRunning, error: null }));
+
+      if (sidecarRunning) {
+        const [status, config] = await Promise.all([
+          fetchSidecarStatus().catch(() => null),
+          fetchSidecarConfig().catch(() => null),
+        ]);
+        setState((prev) => ({
+          ...prev,
+          syncRunning: status?.running ?? false,
+          nodeId: status?.nodeId ?? config?.nodeId ?? null,
+          listenPort: config?.port ?? null,
+        }));
+      } else {
+        setState((prev) => ({
+          ...prev,
+          syncRunning: false,
+          nodeId: null,
+          listenPort: null,
+        }));
+      }
+    } catch (e) {
+      setState((prev) => ({
+        ...prev,
+        error: e instanceof Error ? e.message : String(e),
+      }));
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    const id = setInterval(refresh, 3000);
+    return () => clearInterval(id);
+  }, [refresh]);
+
+  async function toggleSidecar() {
+    setLoading(true);
+    try {
+      if (state.sidecarRunning) {
+        await invoke("sidecar_stop");
+      } else {
+        await invoke("sidecar_start");
+      }
+      await refresh();
+    } catch (e) {
+      setState((prev) => ({
+        ...prev,
+        error: e instanceof Error ? e.message : String(e),
+      }));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function toggleSync() {
+    if (!state.sidecarRunning) return;
+    setLoading(true);
+    try {
+      if (state.syncRunning) {
+        await stopSync();
+      } else {
+        await startSync();
+      }
+      await refresh();
+    } catch (e) {
+      setState((prev) => ({
+        ...prev,
+        error: e instanceof Error ? e.message : String(e),
+      }));
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+      <h1>lan-clip</h1>
+      <p className="subtitle">局域网剪贴板同步</p>
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
+      {state.error && (
+        <div className="error-banner">
+          {state.error}
+        </div>
+      )}
 
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
+      <section className="card">
+        <h2>Sidecar 状态</h2>
+        <div className="status-row">
+          <span className="status-label">运行状态</span>
+          <span className={state.sidecarRunning ? "status-on" : "status-off"}>
+            {state.sidecarRunning ? "运行中" : "已停止"}
+          </span>
+        </div>
+        <button
+          className="toggle-btn"
+          onClick={toggleSidecar}
+          disabled={loading}
+        >
+          {state.sidecarRunning ? "停止 Sidecar" : "启动 Sidecar"}
+        </button>
+      </section>
+
+      {state.sidecarRunning && (
+        <section className="card">
+          <h2>同步状态</h2>
+          <div className="status-row">
+            <span className="status-label">同步开关</span>
+            <span className={state.syncRunning ? "status-on" : "status-off"}>
+              {state.syncRunning ? "运行中" : "已停止"}
+            </span>
+          </div>
+          <div className="status-row">
+            <span className="status-label">节点名</span>
+            <span className="status-value">
+              {state.nodeId ?? "—"}
+            </span>
+          </div>
+          <div className="status-row">
+            <span className="status-label">监听端口</span>
+            <span className="status-value">
+              {state.listenPort ?? "—"}
+            </span>
+          </div>
+          <button
+            className="toggle-btn"
+            onClick={toggleSync}
+            disabled={loading}
+          >
+            {state.syncRunning ? "停止同步" : "开始同步"}
+          </button>
+        </section>
+      )}
     </main>
   );
 }
