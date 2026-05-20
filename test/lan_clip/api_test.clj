@@ -42,6 +42,44 @@
           (api/stop-api-server server)
           (Thread/sleep 200))))))
 
+(deftest api-status-returns-version
+  (testing "GET /status 应返回版本与协议版本"
+    (let [port (random-port)
+          server (api/start-api-server port)]
+      (try
+        (Thread/sleep 200)
+        (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/status"))
+              body-str (slurp body)
+              parsed (clojure.edn/read-string body-str)]
+          (is (= 200 status))
+          (is (contains? parsed :version))
+          (is (string? (:version parsed)))
+          (is (contains? parsed :protocol-version))
+          (is (int? (:protocol-version parsed)))
+          (is (= 1 (:protocol-version parsed))))
+        (finally
+          (api/stop-api-server server)
+          (Thread/sleep 200))))))
+
+(deftest api-status-includes-node-id-when-running
+  (testing "GET /status 当应用运行时应返回 node-id"
+    (with-redefs [app/status (fn [] {:running? true
+                                     :config {:port 9002
+                                              :node-id #uuid "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}})]
+      (let [port (random-port)
+            server (api/start-api-server port)]
+        (try
+          (Thread/sleep 200)
+          (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/status"))
+                body-str (slurp body)
+                parsed (clojure.edn/read-string body-str)]
+            (is (= 200 status))
+            (is (contains? parsed :node-id))
+            (is (= #uuid "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" (:node-id parsed))))
+          (finally
+            (api/stop-api-server server)
+            (Thread/sleep 200)))))))
+
 (deftest api-config-returns-default-config-when-not-running
   (testing "GET /config 当应用未运行时应返回默认配置（不含 secret-key）"
     (app/stop!)

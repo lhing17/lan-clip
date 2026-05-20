@@ -17,8 +17,15 @@
   [path]
   (reset! config-path-atom path))
 
+(def ^:private app-version "1.0")
+(def ^:private protocol-version 1)
+
 (defn- app-state []
-  (app/status))
+  (let [st (app/status)]
+    (cond-> (merge st
+                   {:version app-version
+                    :protocol-version protocol-version})
+      (:running? st) (assoc :node-id (get-in st [:config :node-id])))))
 
 (defn- safe-config
   "返回不含敏感字段的配置 map。"
