@@ -1,9 +1,11 @@
 (ns lan-clip.core-test
   (:require [clojure.test :refer :all]
-            [lan-clip.core :refer :all])
+            [lan-clip.core :refer :all]
+            [lan-clip.socket.client :as client])
   (:import (java.awt Toolkit)
-           (java.awt.datatransfer DataFlavor StringSelection)
-           (java.util UUID)))
+           (java.awt.datatransfer DataFlavor StringSelection Clipboard)
+           (java.io File)
+           (java.util UUID Collections)))
 
 (deftest core-namespace-loads
   (testing "lan-clip.core 命名空间应可成功加载"
@@ -70,3 +72,27 @@
             (let [output (with-out-str
                            (#'lan-clip.core/listen-clipboard node-id secret-key last-remote-fp))]
               (is (re-find #"loop-suppressed" output) "应包含 loop-suppressed 日志"))))))))
+
+(defn- mock-clipboard-with-files [files]
+  (proxy [Clipboard] ["test"]
+    (isDataFlavorAvailable [flavor]
+      (= flavor DataFlavor/javaFileListFlavor))
+    (getData [flavor]
+      (when (= flavor DataFlavor/javaFileListFlavor)
+        files))))
+
+(deftest handle-flavor-rejects-oversized-files
+  (testing "文件超过 :file-size 限制时应拒绝发送并输出 file-too-large"
+    (let [temp-file (doto (File/createTempFile "oversized" ".txt")
+                      (.deleteOnExit))
+          _ (spit temp-file "some content")
+          conf {:file-size 0
+                :target-host "localhost"
+                :target-port 9002}
+          sent (atom false)
+          mock-clip (mock-clipboard-with-files (Collections/singletonList temp-file))]
+      (with-redefs [client/->Client (fn [& _] (reify client/RunnableClient (run [_] (reset! sent true))))]
+        (let [output (with-out-str
+                       (handle-flavor mock-clip conf (UUID/randomUUID) "secret"))]
+          (is (false? @sent) "超限文件不应发送")
+          (is (re-find #"file-too-large" output) "应包含 file-too-large 日志"))))))
