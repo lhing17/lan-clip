@@ -19,7 +19,8 @@
    :interval 2000
    :secret-key "lan-clip"
    :max-frame-size 10485760
-   :received-files-dir nil})
+   :received-files-dir nil
+   :log-file nil})
 
 (defn- read-edn-file
   "从指定路径读取 EDN 文件；文件不存在或 path 为 nil 时返回 nil。"
@@ -42,6 +43,12 @@
   (let [home (System/getProperty "user.home")]
     (.getAbsolutePath (jio/file home ".lan-clip" "received-files"))))
 
+(defn default-log-file
+  "返回默认日志文件的绝对路径，位于 ~/.lan-clip/lan-clip.log。"
+  []
+  (let [home (System/getProperty "user.home")]
+    (.getAbsolutePath (jio/file home ".lan-clip" "lan-clip.log"))))
+
 (defn- load-or-create-node-id
   "读取或生成并持久化 node-id UUID。"
   []
@@ -61,7 +68,10 @@
   (let [cfg (merge default-config (or (read-edn-file path) {}))
         cfg (if (:received-files-dir cfg)
               cfg
-              (assoc cfg :received-files-dir (default-received-files-dir)))]
+              (assoc cfg :received-files-dir (default-received-files-dir)))
+        cfg (if (:log-file cfg)
+              cfg
+              (assoc cfg :log-file (default-log-file)))]
     (if (:node-id cfg)
       cfg
       (assoc cfg :node-id (load-or-create-node-id)))))

@@ -56,6 +56,8 @@
           (is (map? parsed))
           (is (contains? parsed :port))
           (is (= 9002 (:port parsed)))
+          (is (contains? parsed :log-file) "应包含日志文件路径")
+          (is (string? (:log-file parsed)))
           (is (not (contains? parsed :secret-key)) "不应包含 secret-key"))
         (finally
           (api/stop-api-server server)

@@ -15,7 +15,7 @@
     f))
 
 (deftest default-config-has-required-keys
-  (testing "default-config 应包含 :port :target-host :target-port :file-size :interval :secret-key :max-frame-size :received-files-dir"
+  (testing "default-config 应包含 :port :target-host :target-port :file-size :interval :secret-key :max-frame-size :received-files-dir :log-file"
     (let [d config/default-config]
       (is (map? d))
       (is (contains? d :port))
@@ -25,7 +25,8 @@
       (is (contains? d :interval))
       (is (contains? d :secret-key))
       (is (contains? d :max-frame-size))
-      (is (contains? d :received-files-dir)))))
+      (is (contains? d :received-files-dir))
+      (is (contains? d :log-file)))))
 
 (deftest default-config-has-safe-default-host
   (testing "默认 target-host 必须是 localhost，避免无意中向局域网真实 IP 发送"
@@ -40,7 +41,7 @@
       (with-redefs [config/node-id-path (constantly (.getAbsolutePath temp-node-id-file))]
         (is (false? (.exists missing)))
         (let [loaded (config/load-config (.getAbsolutePath missing))]
-          (is (= (dissoc config/default-config :received-files-dir) (dissoc loaded :node-id :received-files-dir)))
+          (is (= (dissoc config/default-config :received-files-dir :log-file) (dissoc loaded :node-id :received-files-dir :log-file)))
           (is (string? (:received-files-dir loaded)))
           (is (instance? UUID (:node-id loaded))))))))
 
