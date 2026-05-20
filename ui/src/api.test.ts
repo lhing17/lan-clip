@@ -5,6 +5,7 @@ import {
   startSync,
   stopSync,
   saveConfig,
+  fetchRecentLogs,
 } from "./api";
 
 describe("sidecar HTTP client", () => {
@@ -116,5 +117,46 @@ describe("sidecar HTTP client", () => {
     } as Response);
 
     await expect(saveConfig({ port: 0 })).rejects.toThrow("Status 400");
+  });
+
+  it("fetchRecentLogs parses EDN vector of maps", async () => {
+    const mockFetch = vi.mocked(fetch);
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () =>
+        '[{:time #inst "2026-05-20T10:00:00.000-00:00" :level :info :msg "hello"} {:time #inst "2026-05-20T10:01:00.000-00:00" :level :warn :msg "world"}]',
+    } as Response);
+
+    const logs = await fetchRecentLogs();
+    expect(logs).toHaveLength(2);
+    expect(logs[0].level).toBe("info");
+    expect(logs[0].msg).toBe("hello");
+    expect(logs[1].level).toBe("warn");
+    expect(logs[1].msg).toBe("world");
+    expect(mockFetch).toHaveBeenCalledWith("http://localhost:9615/logs/recent");
+  });
+
+  it("fetchRecentLogs returns empty array for empty vector", async () => {
+    const mockFetch = vi.mocked(fetch);
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => "[]",
+    } as Response);
+
+    const logs = await fetchRecentLogs();
+    expect(logs).toHaveLength(0);
+  });
+
+  it("fetchRecentLogs throws on non-ok response", async () => {
+    const mockFetch = vi.mocked(fetch);
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      text: async () => "error",
+    } as Response);
+
+    await expect(fetchRecentLogs()).rejects.toThrow("Status 500");
   });
 });

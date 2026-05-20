@@ -6,8 +6,11 @@ import {
   startSync,
   stopSync,
   saveConfig,
+  fetchRecentLogs,
   type SidecarConfig,
+  type LogEntry,
 } from "./api";
+import { openPath } from "@tauri-apps/plugin-opener";
 import "./App.css";
 
 interface AppState {
@@ -18,7 +21,7 @@ interface AppState {
   error: string | null;
 }
 
-type Tab = "status" | "config";
+type Tab = "status" | "config" | "logs";
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>("status");
@@ -132,9 +135,15 @@ function App() {
         >
           配置
         </button>
+        <button
+          className={activeTab === "logs" ? "tab-active" : "tab"}
+          onClick={() => setActiveTab("logs")}
+        >
+          日志
+        </button>
       </nav>
 
-      {activeTab === "status" ? (
+      {activeTab === "status" && (
         <>
           <section className="card">
             <h2>Sidecar 状态</h2>
@@ -184,9 +193,9 @@ function App() {
             </section>
           )}
         </>
-      ) : (
-        <ConfigPage />
       )}
+      {activeTab === "config" && <ConfigPage />}
+      {activeTab === "logs" && <LogsPage />}
     </main>
   );
 }
@@ -314,6 +323,94 @@ function ConfigPage() {
           {saving ? "保存中..." : "保存配置"}
         </button>
       </form>
+    </section>
+  );
+}
+
+function LogsPage() {
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [logDir, setLogDir] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchSidecarConfig()
+      .then((cfg) => {
+        if (cfg.logFile) {
+          const sep = cfg.logFile.includes("/") ? "/" : "\\";
+          const idx = cfg.logFile.lastIndexOf(sep);
+          setLogDir(idx > 0 ? cfg.logFile.slice(0, idx) : cfg.logFile);
+        }
+      })
+      .catch(() => setLogDir(null));
+  }, []);
+
+  const refreshLogs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const entries = await fetchRecentLogs();
+      setLogs(entries);
+    } catch (e) {
+      setLogs([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshLogs();
+  }, [refreshLogs]);
+
+  async function openLogDir() {
+    if (!logDir) return;
+    try {
+      await openPath(logDir);
+    } catch (e) {
+      console.error("open log dir failed", e);
+    }
+  }
+
+  const errorLogs = logs.filter((l) => l.level === "error");
+
+  return (
+    <section className="card">
+      <h2>日志</h2>
+      <div className="logs-toolbar">
+        <button className="toggle-btn" onClick={refreshLogs} disabled={loading}>
+          {loading ? "刷新中..." : "刷新"}
+        </button>
+        {logDir && (
+          <button className="toggle-btn" onClick={openLogDir}>
+            打开日志目录
+          </button>
+        )}
+      </div>
+
+      {errorLogs.length > 0 && (
+        <div className="error-banner">
+          <strong>错误详情</strong>
+          <ul className="error-list">
+            {errorLogs.map((l, i) => (
+              <li key={`err-${i}`}>
+                [{l.time}] {l.msg}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {logs.length === 0 ? (
+        <p className="empty-logs">暂无日志</p>
+      ) : (
+        <ul className="log-list">
+          {logs.map((l, i) => (
+            <li key={`log-${i}`} className={`log-item log-${l.level}`}>
+              <span className="log-time">{l.time}</span>
+              <span className="log-level">{l.level}</span>
+              <span className="log-msg">{l.msg}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

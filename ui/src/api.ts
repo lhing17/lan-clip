@@ -37,6 +37,12 @@ export interface SaveConfigResult {
   restartRequired?: boolean;
 }
 
+export interface LogEntry {
+  time?: string;
+  level?: string;
+  msg?: string;
+}
+
 export async function fetchSidecarStatus(): Promise<SidecarStatus> {
   const res = await fetch(sidecarUrl("/status"));
   if (!res.ok) throw new Error(`Status ${res.status}`);
@@ -113,9 +119,23 @@ export async function saveConfig(
   return parseEdnLike(text) as SaveConfigResult;
 }
 
+export async function fetchRecentLogs(): Promise<LogEntry[]> {
+  const res = await fetch(sidecarUrl("/logs/recent"));
+  if (!res.ok) throw new Error(`Status ${res.status}`);
+  const text = await res.text();
+  return parseEdnVector(text).map((m) => ({
+    time: String(m.time ?? ""),
+    level: String(m.level ?? ""),
+    msg: String(m.msg ?? ""),
+  }));
+}
+
 function parseEdnLike(text: string): Record<string, unknown> {
   const result: Record<string, unknown> = {};
-  const tokens = text.replace(/[{}]/g, "").split(/\s+/).filter(Boolean);
+  const cleaned = text
+    .replace(/#inst\s+("[^"]*")/g, "$1")
+    .replace(/[{}]/g, "");
+  const tokens = cleaned.split(/\s+/).filter(Boolean);
   for (let i = 0; i < tokens.length; i += 2) {
     const key = tokens[i]?.replace(/^:/, "");
     const raw = tokens[i + 1];
@@ -124,6 +144,33 @@ function parseEdnLike(text: string): Record<string, unknown> {
     }
   }
   return result;
+}
+
+function parseEdnVector(text: string): Record<string, unknown>[] {
+  text = text.trim();
+  if (!text.startsWith("[") || !text.endsWith("]")) return [];
+  const inner = text.slice(1, -1).trim();
+  if (!inner) return [];
+
+  const entries: string[] = [];
+  let depth = 0;
+  let current = "";
+
+  for (const char of inner) {
+    if (char === "{") {
+      if (depth === 0) current = "";
+      depth++;
+    }
+    current += char;
+    if (char === "}") {
+      depth--;
+      if (depth === 0) {
+        entries.push(current);
+        current = "";
+      }
+    }
+  }
+  return entries.map(parseEdnLike);
 }
 
 function kebabToCamel(s: string): string {
@@ -137,5 +184,5 @@ function parseValue(raw: string): unknown {
   if (raw === "nil") return null;
   if (/^\d+$/.test(raw)) return parseInt(raw, 10);
   if (/^#[a-f0-9-]+$/i.test(raw)) return raw;
-  return raw.replace(/^"/, "").replace(/"$/, "");
+  return raw.replace(/^:/, "").replace(/^"/, "").replace(/"$/, "");
 }
