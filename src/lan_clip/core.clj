@@ -79,14 +79,23 @@
   (def data (.getData clip DataFlavor/javaFileListFlavor))
   (future (client/run (client/->Client "localhost" 9002 data "lan-clip" (UUID/randomUUID)))),)
 
-(defn- listen-clipboard [node-id secret-key]
-  "监听剪贴版上的内容是否有变化，如果有变化，缓存剪贴版上的内容，并启动新客户端将剪贴板上的内容发送到目标服务器"
+(defn- listen-clipboard [node-id secret-key last-remote-fp]
+  "监听剪贴版上的内容是否有变化，如果有变化，缓存剪贴版上的内容，并启动新客户端将剪贴板上的内容发送到目标服务器。
+  若当前内容与 last-remote-fp 匹配，则判定为远端回环，抑制发送并输出 loop-suppressed。"
   (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))
         conf (config/load-config "config.edn")]
     (let [new-clip-data (get-clip-data clip conf)]
       (when (clip-data-changed? new-clip-data)
-        (reset! clip-data new-clip-data)
-        (handle-flavor clip conf node-id secret-key)))))
+        (if (and @last-remote-fp
+                 (= (:flavor new-clip-data) (:flavor @last-remote-fp))
+                 (= (:length new-clip-data) (:length @last-remote-fp))
+                 (= (:contents new-clip-data) (:contents @last-remote-fp)))
+          (do
+            (reset! clip-data new-clip-data)
+            (println "loop-suppressed"))
+          (do
+            (reset! clip-data new-clip-data)
+            (handle-flavor clip conf node-id secret-key)))))))
 
 (defn lan-clip []
   (let [conf (config/load-config "config.edn")
@@ -103,7 +112,7 @@
 (defn -main [& _]
   (let [node-id (UUID/randomUUID)
         secret-key (:secret-key (config/load-config "config.edn"))]
-    (app/start! "config.edn" (fn [_] (listen-clipboard node-id secret-key)))))
+    (app/start! "config.edn" (fn [_ last-remote-fp] (listen-clipboard node-id secret-key last-remote-fp)))))
 
 (comment
   (-main),)
