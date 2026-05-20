@@ -70,6 +70,14 @@
   [p]
   (and (integer? p) (<= 1 p 65535)))
 
+(defn save-config!
+  "将配置 map 保存为指定路径的 EDN 文件。父目录不存在时自动创建。"
+  [path m]
+  (let [f (jio/file path)]
+    (when-let [parent (.getParentFile f)]
+      (.mkdirs parent))
+    (spit f (pr-str m))))
+
 (defn validate-config
   "校验配置：通过则原样返回 m，否则抛 ex-info。当前仅校验端口范围。"
   [m]

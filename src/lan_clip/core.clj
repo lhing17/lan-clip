@@ -120,10 +120,17 @@
     (-> conf (:port) (int) (server/->Server secret-key (:max-frame-size conf)) (.run) (future))))
 
 
+(defn make-clipboard-handler
+  "创建可供 app/start! 使用的剪贴板处理函数。"
+  []
+  (let [conf (config/load-config "config.edn")
+        node-id (:node-id conf)
+        secret-key (:secret-key conf)]
+    (fn [_ last-remote-fp]
+      (listen-clipboard node-id secret-key last-remote-fp))))
+
 (defn -main [& _]
-  (let [node-id (UUID/randomUUID)
-        secret-key (:secret-key (config/load-config "config.edn"))]
-    (app/start! "config.edn" (fn [_ last-remote-fp] (listen-clipboard node-id secret-key last-remote-fp)))))
+  (app/start! "config.edn" (make-clipboard-handler)))
 
 (comment
   (-main),)

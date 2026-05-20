@@ -15,6 +15,12 @@
   []
   @last-remote-fp)
 
+(defn current-config
+  "返回当前运行中的完整配置；若应用未运行则返回 nil。"
+  []
+  (when-let [st @app-state]
+    (:config st)))
+
 (defn status
   "返回当前应用状态。"
   []

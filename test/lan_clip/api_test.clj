@@ -1,0 +1,120 @@
+(ns lan-clip.api-test
+  (:require [clojure.test :refer :all]
+            [lan-clip.api :as api]
+            [lan-clip.app :as app]
+            [org.httpkit.client :as http])
+  (:import (java.net ServerSocket)))
+
+(defn- random-port
+  "返回一个当前未被占用的随机端口。"
+  []
+  (with-open [ss (ServerSocket. 0)]
+    (.getLocalPort ss)))
+
+(deftest api-server-can-start-and-stop
+  (testing "API server 应能启动并在 stop 后释放端口"
+    (let [port (random-port)
+          server (api/start-api-server port)]
+      (try
+        (Thread/sleep 200)
+        (is (some? server) "应有 server 对象")
+        (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/status"))
+              body-str (slurp body)]
+          (is (= 200 status) "/status 应返回 200"))
+        (finally
+          (api/stop-api-server server)
+          (Thread/sleep 200))))))
+
+(deftest api-status-returns-running-state
+  (testing "GET /status 应返回运行状态"
+    (let [port (random-port)
+          server (api/start-api-server port)]
+      (try
+        (Thread/sleep 200)
+        (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/status"))
+              body-str (slurp body)
+              parsed (clojure.edn/read-string body-str)]
+          (is (= 200 status))
+          (is (contains? parsed :running?))
+          (is (false? (:running? parsed))))
+        (finally
+          (api/stop-api-server server)
+          (Thread/sleep 200))))))
+
+(deftest api-config-returns-default-config-when-not-running
+  (testing "GET /config 当应用未运行时应返回默认配置（不含 secret-key）"
+    (app/stop!)
+    (let [port (random-port)
+          server (api/start-api-server port)]
+      (try
+        (Thread/sleep 200)
+        (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/config"))
+              body-str (slurp body)
+              parsed (clojure.edn/read-string body-str)]
+          (is (= 200 status))
+          (is (map? parsed))
+          (is (contains? parsed :port))
+          (is (= 9002 (:port parsed)))
+          (is (not (contains? parsed :secret-key)) "不应包含 secret-key"))
+        (finally
+          (api/stop-api-server server)
+          (Thread/sleep 200))))))
+
+(deftest api-start-sync-starts-app
+  (testing "POST /sync/start 应启动同步并返回运行状态"
+    (app/stop!)
+    (with-redefs [app/start! (fn [& _] {:running? true :config {:port 9002}})
+                  app/stop! (fn [] {:running? false})]
+      (let [port (random-port)
+            server (api/start-api-server port)]
+        (try
+          (Thread/sleep 200)
+          (let [{:keys [status body]} @(http/post (str "http://localhost:" port "/sync/start"))
+                body-str (slurp body)
+                parsed (clojure.edn/read-string body-str)]
+            (is (= 200 status))
+            (is (true? (:running? parsed))))
+          (finally
+            (api/stop-api-server server)
+            (Thread/sleep 200)))))))
+
+(deftest api-stop-sync-stops-app
+  (testing "POST /sync/stop 应停止同步并返回停止状态"
+    (with-redefs [app/start! (fn [& _] {:running? true :config {:port 9002}})
+                  app/stop! (fn [] {:running? false})]
+      (let [port (random-port)
+            server (api/start-api-server port)]
+        (try
+          (Thread/sleep 200)
+          @(http/post (str "http://localhost:" port "/sync/start"))
+          (let [{:keys [status body]} @(http/post (str "http://localhost:" port "/sync/stop"))
+                body-str (slurp body)
+                parsed (clojure.edn/read-string body-str)]
+            (is (= 200 status))
+            (is (false? (:running? parsed))))
+          (finally
+            (api/stop-api-server server)
+            (Thread/sleep 200)))))))
+
+(deftest api-put-config-saves-config
+  (testing "PUT /config 应保存配置并返回成功"
+    (let [temp-file (doto (java.io.File/createTempFile "config" ".edn") (.deleteOnExit))
+          _ (spit temp-file (pr-str {:port 9003 :target-host "localhost"}))
+          port (random-port)
+          _ (api/set-config-path! (.getAbsolutePath temp-file))
+          server (api/start-api-server port)]
+      (try
+        (Thread/sleep 200)
+        (let [{:keys [status body]} @(http/put (str "http://localhost:" port "/config")
+                                               {:body (pr-str {:target-host "192.168.1.100"})
+                                                :headers {"Content-Type" "application/edn"}})
+              body-str (slurp body)
+              parsed (clojure.edn/read-string body-str)]
+          (is (= 200 status))
+          (is (:success? parsed))
+          (let [saved (clojure.edn/read-string (slurp temp-file))]
+            (is (= "192.168.1.100" (:target-host saved)))
+            (is (= 9003 (:port saved)) "原有配置应保留")))
+        (finally
+          (api/stop-api-server server)
+          (Thread/sleep 200))))))
