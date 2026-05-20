@@ -4,6 +4,7 @@ import {
   fetchSidecarConfig,
   startSync,
   stopSync,
+  saveConfig,
 } from "./api";
 
 describe("sidecar HTTP client", () => {
@@ -83,5 +84,37 @@ describe("sidecar HTTP client", () => {
     } as Response);
 
     await expect(fetchSidecarStatus()).rejects.toThrow("Status 500");
+  });
+
+  it("saveConfig sends PUT with EDN body", async () => {
+    const mockFetch = vi.mocked(fetch);
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => '{:success? true :restart-required? false}',
+    } as Response);
+
+    const result = await saveConfig({ deviceName: "My-MacBook", port: 9003 });
+    expect(result.success).toBe(true);
+    expect(result.restartRequired).toBe(false);
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://localhost:9615/config",
+      expect.objectContaining({
+        method: "PUT",
+        headers: { "Content-Type": "application/edn" },
+        body: '{:device-name "My-MacBook" :port 9003}',
+      })
+    );
+  });
+
+  it("saveConfig throws on non-ok response", async () => {
+    const mockFetch = vi.mocked(fetch);
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      text: async () => "bad request",
+    } as Response);
+
+    await expect(saveConfig({ port: 0 })).rejects.toThrow("Status 400");
   });
 });

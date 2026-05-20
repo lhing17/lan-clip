@@ -28,6 +28,13 @@ export interface SidecarConfig {
   receivedFilesDir?: string;
   nodeId?: string;
   logFile?: string;
+  deviceName?: string;
+  secretKey?: string;
+}
+
+export interface SaveConfigResult {
+  success?: boolean;
+  restartRequired?: boolean;
 }
 
 export async function fetchSidecarStatus(): Promise<SidecarStatus> {
@@ -72,6 +79,38 @@ export async function getSidecarStatus(): Promise<boolean> {
 
 export async function getSidecarPort(): Promise<number> {
   return invoke("sidecar_port");
+}
+
+function camelToKebab(s: string): string {
+  return s.replace(/[A-Z]/g, (ch) => "-" + ch.toLowerCase());
+}
+
+function toEdnValue(value: unknown): string {
+  if (value === null || value === undefined) return "nil";
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") return JSON.stringify(value);
+  return String(value);
+}
+
+function configToEdn(cfg: Partial<SidecarConfig>): string {
+  const entries = Object.entries(cfg)
+    .filter(([, v]) => v !== undefined)
+    .map(([k, v]) => `:${camelToKebab(k)} ${toEdnValue(v)}`);
+  return "{" + entries.join(" ") + "}";
+}
+
+export async function saveConfig(
+  cfg: Partial<SidecarConfig>
+): Promise<SaveConfigResult> {
+  const res = await fetch(sidecarUrl("/config"), {
+    method: "PUT",
+    headers: { "Content-Type": "application/edn" },
+    body: configToEdn(cfg),
+  });
+  if (!res.ok) throw new Error(`Status ${res.status}`);
+  const text = await res.text();
+  return parseEdnLike(text) as SaveConfigResult;
 }
 
 function parseEdnLike(text: string): Record<string, unknown> {

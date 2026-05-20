@@ -15,7 +15,7 @@
     f))
 
 (deftest default-config-has-required-keys
-  (testing "default-config 应包含 :port :target-host :target-port :file-size :interval :secret-key :max-frame-size :received-files-dir :log-file"
+  (testing "default-config 应包含 :port :target-host :target-port :file-size :interval :secret-key :max-frame-size :received-files-dir :log-file :device-name"
     (let [d config/default-config]
       (is (map? d))
       (is (contains? d :port))
@@ -26,7 +26,8 @@
       (is (contains? d :secret-key))
       (is (contains? d :max-frame-size))
       (is (contains? d :received-files-dir))
-      (is (contains? d :log-file)))))
+      (is (contains? d :log-file))
+      (is (contains? d :device-name)))))
 
 (deftest default-config-has-safe-default-host
   (testing "默认 target-host 必须是 localhost，避免无意中向局域网真实 IP 发送"
@@ -120,3 +121,9 @@
       (with-redefs [config/node-id-path (constantly (.getAbsolutePath temp-node-id-file))]
         (let [cfg (config/load-config (.getAbsolutePath f))]
           (is (= user-id (:node-id cfg)) "用户配置的 node-id 应优先"))))))
+
+(deftest load-config-custom-device-name
+  (testing "用户提供的 :device-name 应覆盖默认值"
+    (let [f (temp-edn "{:device-name \"My-MacBook\"}")
+          loaded (config/load-config (.getAbsolutePath f))]
+      (is (= "My-MacBook" (:device-name loaded))))))
