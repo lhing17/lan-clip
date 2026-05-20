@@ -140,15 +140,33 @@
     (.close zos)
     (.toByteArray baos)))
 
+(defn- unique-file
+  "如果 f 已存在，返回一个带序号的不冲突文件名，如 existing.txt → existing (1).txt。"
+  [^File f]
+  (if-not (.exists f)
+    f
+    (let [name (.getName f)
+          parent (.getParentFile f)
+          dot-index (.lastIndexOf name ".")
+          [base ext] (if (pos? dot-index)
+                       [(.substring name 0 dot-index) (.substring name dot-index)]
+                       [name ""])]
+      (loop [n 1]
+        (let [candidate (File. parent (str base " (" n ")" ext))]
+          (if (.exists candidate)
+            (recur (inc n))
+            candidate))))))
+
 (defn zip-bytes->files
-  "将 zip 字节数组解压到 dest-dir，返回文件列表。"
+  "将 zip 字节数组解压到 dest-dir，返回文件列表。
+  若目标目录已存在同名文件，自动重命名为 name (1).ext 等避免覆盖。"
   [^bytes zip-bytes ^File dest-dir]
   (.mkdirs dest-dir)
   (let [result (java.util.ArrayList.)]
     (with-open [zis (ZipInputStream. (ByteArrayInputStream. zip-bytes))]
       (loop [entry (.getNextEntry zis)]
         (when entry
-          (let [f (File. dest-dir (.getName entry))]
+          (let [f (unique-file (File. dest-dir (.getName entry)))]
             (with-open [fos (FileOutputStream. f)]
               (jio/copy zis fos))
             (.add result f))
