@@ -114,6 +114,75 @@ h1 {
   font-size: 0.9rem;
 }
 
+.info-banner {
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.tab,
+.tab-active {
+  flex: 1;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.tab {
+  background-color: #e3e3e3;
+  color: #555;
+}
+
+.tab:hover {
+  background-color: #d5d5d5;
+}
+
+.tab-active {
+  background-color: #396cd8;
+  color: #ffffff;
+}
+
+.config-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.config-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.config-form input {
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+  background: #ffffff;
+  color: #0f0f0f;
+}
+
+.config-form input:focus {
+  outline: none;
+  border-color: #396cd8;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     color: #f6f6f6;
@@ -152,5 +221,29 @@ h1 {
   .error-banner {
     background: #3e2723;
     color: #ef9a9a;
+  }
+
+  .info-banner {
+    background: #1b5e20;
+    color: #a5d6a7;
+  }
+
+  .tab {
+    background-color: #4a4a4a;
+    color: #aaa;
+  }
+
+  .tab:hover {
+    background-color: #555;
+  }
+
+  .config-form input {
+    background: #2f2f2f;
+    color: #f6f6f6;
+    border-color: #555;
+  }
+
+  .config-form input:focus {
+    border-color: #396cd8;
   }
 }

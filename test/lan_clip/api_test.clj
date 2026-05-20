@@ -333,3 +333,26 @@
         (finally
           (api/stop-api-server server)
           (Thread/sleep 200))))))
+
+(deftest api-put-config-device-name-no-restart
+  (testing "PUT /config 修改 device-name 时不应提示需重启"
+    (let [temp-file (doto (java.io.File/createTempFile "config" ".edn") (.deleteOnExit))
+          _ (spit temp-file (pr-str {:port 9002 :target-host "localhost"}))
+          port (random-port)
+          _ (api/set-config-path! (.getAbsolutePath temp-file))
+          server (api/start-api-server port)]
+      (try
+        (Thread/sleep 200)
+        (let [{:keys [status body]} @(http/put (str "http://localhost:" port "/config")
+                                               {:body (pr-str {:device-name "My-MacBook"})
+                                                :headers {"Content-Type" "application/edn"}})
+              body-str (slurp body)
+              parsed (clojure.edn/read-string body-str)]
+          (is (= 200 status))
+          (is (:success? parsed))
+          (is (not (:restart-required? parsed)) "修改 device-name 不应提示需重启")
+          (let [saved (clojure.edn/read-string (slurp temp-file))]
+            (is (= "My-MacBook" (:device-name saved)))))
+        (finally
+          (api/stop-api-server server)
+          (Thread/sleep 200))))))
