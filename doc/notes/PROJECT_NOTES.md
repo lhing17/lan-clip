@@ -28,3 +28,4 @@
 #2026-05-20 完成 Phase 6 P2 关于页：`App.tsx` 新增 "关于" Tab；使用 Tauri `getVersion` API 获取应用版本；展示协议版本（当前为 1）；添加检查更新占位按钮；补充 vitest 用例 1 个（关于页渲染）。前端 13 测试全绿，`npm run build` 通过。
 #2026-05-20 完成 Phase 6 P1 托盘增强：`ui/src-tauri/src/lib.rs` 新增 `received_files_dir()`（返回 `~/.lan-clip/received-files`）与 `open_directory()`（跨平台打开目录）；托盘菜单新增 "打开接收目录" 项；补充 Rust 单元测试 2 个。`cargo test` 6 测试全绿，`cargo check` 通过。
 #2026-05-20 完成 Phase 6 P1 托盘同步切换：`App.tsx` 新增 `tray-sync-toggle` 事件监听（使用 `useRef` 避免 stale closure）；Rust 托盘菜单新增 "切换同步" 项（通过 `Emitter` trait 发射事件到前端）；补充 vitest 用例 2 个（运行中停止 / 已停止启动）。前端 15 测试全绿，`cargo test` 6 测试全绿。Phase 6 P1 托盘全部完成。
+#2026-05-20 完成 Phase 6 P2 系统通知：新增 `notifications.ts` 封装 `sendNotification` API；`App.tsx` 在 sidecar 启动失败和同步错误时调用 `notifyError`；Rust 注册 `tauri-plugin-notification` 插件；capabilities 增加 `notification:default` 权限；补充 vitest 用例 3 个（notifyError 调用 / sidecar 失败通知）。前端 17 测试全绿，`cargo test` 6 测试全绿。Phase 6 全部完成（sidecar 打包除外）。
