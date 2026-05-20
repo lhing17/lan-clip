@@ -118,3 +118,66 @@
         (finally
           (api/stop-api-server server)
           (Thread/sleep 200))))))
+
+(deftest api-put-config-restart-required-for-port
+  (testing "PUT /config 修改需重启项时应提示需重启"
+    (let [temp-file (doto (java.io.File/createTempFile "config" ".edn") (.deleteOnExit))
+          _ (spit temp-file (pr-str {:port 9002 :target-host "localhost"}))
+          port (random-port)
+          _ (api/set-config-path! (.getAbsolutePath temp-file))
+          server (api/start-api-server port)]
+      (try
+        (Thread/sleep 200)
+        (let [{:keys [status body]} @(http/put (str "http://localhost:" port "/config")
+                                               {:body (pr-str {:port 9003})
+                                                :headers {"Content-Type" "application/edn"}})
+              body-str (slurp body)
+              parsed (clojure.edn/read-string body-str)]
+          (is (= 200 status))
+          (is (:success? parsed))
+          (is (:restart-required? parsed) "修改端口应提示需重启"))
+        (finally
+          (api/stop-api-server server)
+          (Thread/sleep 200))))))
+
+(deftest api-put-config-no-restart-for-target-host
+  (testing "PUT /config 仅修改热更新项时不应提示需重启"
+    (let [temp-file (doto (java.io.File/createTempFile "config" ".edn") (.deleteOnExit))
+          _ (spit temp-file (pr-str {:port 9002 :target-host "localhost"}))
+          port (random-port)
+          _ (api/set-config-path! (.getAbsolutePath temp-file))
+          server (api/start-api-server port)]
+      (try
+        (Thread/sleep 200)
+        (let [{:keys [status body]} @(http/put (str "http://localhost:" port "/config")
+                                               {:body (pr-str {:target-host "192.168.1.100"})
+                                                :headers {"Content-Type" "application/edn"}})
+              body-str (slurp body)
+              parsed (clojure.edn/read-string body-str)]
+          (is (= 200 status))
+          (is (:success? parsed))
+          (is (not (:restart-required? parsed)) "修改 target-host 不应提示需重启"))
+        (finally
+          (api/stop-api-server server)
+          (Thread/sleep 200))))))
+
+(deftest api-put-config-no-restart-for-same-value
+  (testing "PUT /config 发送与现有值相同的需重启项时不应提示需重启"
+    (let [temp-file (doto (java.io.File/createTempFile "config" ".edn") (.deleteOnExit))
+          _ (spit temp-file (pr-str {:port 9002 :target-host "localhost"}))
+          port (random-port)
+          _ (api/set-config-path! (.getAbsolutePath temp-file))
+          server (api/start-api-server port)]
+      (try
+        (Thread/sleep 200)
+        (let [{:keys [status body]} @(http/put (str "http://localhost:" port "/config")
+                                               {:body (pr-str {:port 9002})
+                                                :headers {"Content-Type" "application/edn"}})
+              body-str (slurp body)
+              parsed (clojure.edn/read-string body-str)]
+          (is (= 200 status))
+          (is (:success? parsed))
+          (is (not (:restart-required? parsed)) "发送相同端口值不应提示需重启"))
+        (finally
+          (api/stop-api-server server)
+          (Thread/sleep 200))))))

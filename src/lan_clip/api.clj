@@ -43,11 +43,16 @@
           updates (edn/read-string body-str)
           current (or (config/load-config @config-path-atom)
                       (config/load-config nil))
-          merged (merge current updates)]
+          merged (merge current updates)
+          restart-required? (some (fn [k]
+                                    (and (contains? updates k)
+                                         (not= (get current k) (get updates k))))
+                                  config/restart-required-keys)]
       (config/save-config! @config-path-atom merged)
       {:status 200
        :headers {"Content-Type" "application/edn"}
-       :body (pr-str {:success? true})})
+       :body (pr-str {:success? true
+                      :restart-required? (boolean restart-required?)})})
 
     [:post "/sync/start"]
     {:status 200

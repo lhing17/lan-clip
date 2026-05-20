@@ -70,6 +70,14 @@
   [p]
   (and (integer? p) (<= 1 p 65535)))
 
+(def restart-required-keys
+  "修改这些配置后必须重启应用才能生效。"
+  #{:port :secret-key :max-frame-size :node-id})
+
+(def hot-reloadable-keys
+  "修改这些配置后可热更新，无需重启。"
+  #{:target-host :target-port :interval :file-size :received-files-dir})
+
 (defn save-config!
   "将配置 map 保存为指定路径的 EDN 文件。父目录不存在时自动创建。"
   [path m]
