@@ -101,6 +101,11 @@
   InputStream
   (md5 [this] (DigestUtils/md5Hex this))
 
+  File
+  (md5 [this]
+    (with-open [is (jio/input-stream this)]
+      (DigestUtils/md5Hex is)))
+
   BufferedImage
   (md5 [this] (DigestUtils/md5Hex (image->bytes this)))
 
