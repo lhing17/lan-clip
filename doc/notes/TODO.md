@@ -52,7 +52,7 @@
 - [x] P0 新建 `src/lan_clip/app.clj`，提供 `start!`、`stop!`、`status`。
 - [x] P1 将 Netty server、clipboard watcher 纳入统一生命周期（`app.clj` `start!`/`stop!`）。
 - [x] P1 退出时释放 server 端口、watcher future、Netty event loop。
-- [ ] P2 删除或下沉 `server.clj` 中未使用的顶层 `config`。
+- [x] P2 删除或下沉 `server.clj` 中未使用的顶层 `config`。（前期重构中已自然完成，server.clj 已无未使用 config）
 
 完成标准：
 
@@ -117,7 +117,7 @@
 - [x] P1 文件 metadata 记录文件名、相对路径、大小、hash。
 - [x] P1 超过 `max-file-size-kb` 时拒绝发送并产生可展示事件。
 - [x] P1 接收完成后把真实本地文件列表写入系统剪贴板。
-- [ ] P2 支持目录结构。
+- [x] P2 支持目录结构。
 - [ ] P2 预留分块传输、进度事件和取消接口。
 
 完成标准：
