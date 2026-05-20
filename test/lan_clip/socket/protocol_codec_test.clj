@@ -125,6 +125,33 @@
             (.release buf)
             (.finish ch)))))))
 
+(deftest protocol-encoder-file-list-includes-metadata
+  (testing "->protocol-encoder 文件列表应包含文件名、大小、hash 元数据"
+    (let [temp-file (doto (File/createTempFile "meta" ".txt")
+                      (.deleteOnExit))
+          content "metadata test content"
+          _ (spit temp-file content)
+          expected-hash (org.apache.commons.codec.digest.DigestUtils/md5Hex content)
+          files (Collections/singletonList temp-file)
+          ch (EmbeddedChannel. (into-array ChannelHandler [(codec/->protocol-encoder test-origin test-sender test-secret)]))]
+      (.writeOutbound ch (into-array Object [files]))
+      (let [^ByteBuf buf (.readOutbound ch)]
+        (try
+          (is (instance? ByteBuf buf))
+          (let [frame-len (.readInt buf)
+                frame-bytes (byte-array frame-len)]
+            (.readBytes buf frame-bytes)
+            (let [msg (protocol/decode-message frame-bytes test-secret)
+                  metadata (clojure.edn/read-string (:metadata msg))
+                  file-meta (first (:files metadata))]
+              (is (= :file-list (:content-type msg)))
+              (is (= (.getName temp-file) (:name file-meta)) "metadata 应包含文件名")
+              (is (= (.length temp-file) (:size file-meta)) "metadata 应包含文件大小")
+              (is (= expected-hash (:hash file-meta)) "metadata 应包含文件 hash")))
+          (finally
+            (.release buf)
+            (.finish ch)))))))
+
 (deftest protocol-decoder-rejects-oversized-frame
   (testing "->protocol-decoder 应拒绝超过 max-frame-size 的 frame"
     (let [max-size 1024
