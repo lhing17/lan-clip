@@ -77,9 +77,28 @@
      :headers {"Content-Type" "application/edn"}
      :body (pr-str (log/recent-logs))}
 
-    {:status 404
-     :headers {"Content-Type" "text/plain"}
-     :body "Not Found"}))
+    (let [method (:request-method req)
+          uri (:uri req)]
+      (cond
+        (and (= method :get) (= uri "/transfers"))
+        {:status 200
+         :headers {"Content-Type" "application/edn"}
+         :body (pr-str [])}
+
+        (and (= method :get) (re-matches #"/transfers/[^/]+" uri))
+        {:status 404
+         :headers {"Content-Type" "text/plain"}
+         :body "Not Found"}
+
+        (and (= method :post) (re-matches #"/transfers/[^/]+/cancel" uri))
+        {:status 404
+         :headers {"Content-Type" "text/plain"}
+         :body "Not Found"}
+
+        :else
+        {:status 404
+         :headers {"Content-Type" "text/plain"}
+         :body "Not Found"}))))
 
 (defn start-api-server
   "启动 HTTP API server，返回 server 对象（一个可调用的停止函数）。"

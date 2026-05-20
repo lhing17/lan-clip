@@ -264,3 +264,45 @@
         (finally
           (api/stop-api-server server)
           (Thread/sleep 200))))))
+
+(deftest api-transfers-list-returns-empty
+  (testing "GET /transfers 应返回空列表（预留接口）"
+    (let [port (random-port)
+          server (api/start-api-server port)]
+      (try
+        (Thread/sleep 200)
+        (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/transfers"))
+              body-str (slurp body)
+              parsed (clojure.edn/read-string body-str)]
+          (is (= 200 status))
+          (is (vector? parsed))
+          (is (empty? parsed)))
+        (finally
+          (api/stop-api-server server)
+          (Thread/sleep 200))))))
+
+(deftest api-transfer-detail-not-found
+  (testing "GET /transfers/:id 未找到时应返回 404（预留接口）"
+    (let [port (random-port)
+          server (api/start-api-server port)]
+      (try
+        (Thread/sleep 200)
+        (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/transfers/" (java.util.UUID/randomUUID)))]
+          (is (= 404 status))
+          (is (= "Not Found" (if (string? body) body (slurp body)))))
+        (finally
+          (api/stop-api-server server)
+          (Thread/sleep 200))))))
+
+(deftest api-transfer-cancel-not-found
+  (testing "POST /transfers/:id/cancel 未找到时应返回 404（预留接口）"
+    (let [port (random-port)
+          server (api/start-api-server port)]
+      (try
+        (Thread/sleep 200)
+        (let [{:keys [status body]} @(http/post (str "http://localhost:" port "/transfers/" (java.util.UUID/randomUUID) "/cancel"))]
+          (is (= 404 status))
+          (is (= "Not Found" (if (string? body) body (slurp body)))))
+        (finally
+          (api/stop-api-server server)
+          (Thread/sleep 200))))))
