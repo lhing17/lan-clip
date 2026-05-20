@@ -60,6 +60,28 @@ fn sidecar_status(state: tauri::State<'_, Mutex<SidecarState>>) -> Result<bool, 
     Ok(s.is_running())
 }
 
+/// 返回默认接收文件目录路径（~/.lan-clip/received-files）。
+fn received_files_dir() -> Result<String, String> {
+    let home = std::env::var("HOME").map_err(|_| "无法获取 HOME 目录".to_string())?;
+    Ok(format!("{}/.lan-clip/received-files", home))
+}
+
+/// 使用系统默认程序打开指定目录。
+fn open_directory(path: &str) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    let cmd = "open";
+    #[cfg(target_os = "windows")]
+    let cmd = "explorer";
+    #[cfg(target_os = "linux")]
+    let cmd = "xdg-open";
+
+    std::process::Command::new(cmd)
+        .arg(path)
+        .spawn()
+        .map_err(|e| format!("打开目录失败: {}", e))?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -89,6 +111,19 @@ mod tests {
     fn sidecar_port_returns_9615() {
         assert_eq!(sidecar_port().unwrap(), 9615);
     }
+
+    #[test]
+    fn received_files_dir_returns_default_path() {
+        let path = received_files_dir().unwrap();
+        assert!(path.ends_with(".lan-clip/received-files"));
+    }
+
+    #[test]
+    fn open_directory_returns_ok_for_valid_path() {
+        let temp_dir = std::env::temp_dir();
+        let result = open_directory(temp_dir.to_str().unwrap());
+        assert!(result.is_ok());
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -111,8 +146,9 @@ pub fn run() {
 
             // 创建托盘菜单
             let open_i = MenuItem::new(app, "打开窗口", true, None::<&str>)?;
+            let open_dir_i = MenuItem::new(app, "打开接收目录", true, None::<&str>)?;
             let quit_i = MenuItem::new(app, "退出", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open_i, &quit_i])?;
+            let menu = Menu::with_items(app, &[&open_i, &open_dir_i, &quit_i])?;
 
             TrayIconBuilder::new()
                 .menu(&menu)
@@ -122,6 +158,11 @@ pub fn run() {
                             if let Some(window) = app_handle.get_webview_window("main") {
                                 let _ = window.show();
                                 let _ = window.set_focus();
+                            }
+                        }
+                        id if id == open_dir_i.id().as_ref() => {
+                            if let Ok(dir) = received_files_dir() {
+                                let _ = open_directory(&dir);
                             }
                         }
                         id if id == quit_i.id().as_ref() => {
