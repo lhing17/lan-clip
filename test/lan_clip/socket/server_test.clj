@@ -4,6 +4,7 @@
             [lan-clip.socket.protocol-codec :as codec]
             [lan-clip.util :as util])
   (:import (java.net ServerSocket Socket)
+           (java.awt Toolkit)
            (java.awt.image BufferedImage)
            (java.io File)
            (java.util Collections UUID)
@@ -138,3 +139,21 @@
         (finally
           (when (.exists received-dir)
             (org.apache.commons.io.FileUtils/deleteDirectory received-dir)))))))
+
+(deftest handle-msg-file-list-writes-real-files-to-clipboard
+  (testing "handle-msg :file-list 应把真实本地文件列表写入系统剪贴板"
+    (let [temp-file (doto (File/createTempFile "clip-test" ".txt") (.deleteOnExit))
+          _ (spit temp-file "clipboard file test")
+          files (Collections/singletonList temp-file)
+          zip-bytes (util/files->zip-bytes files)
+          clip (.getSystemClipboard (Toolkit/getDefaultToolkit))
+          original-contents (.getContents clip nil)]
+      (try
+        (server/handle-msg {:content-type :file-list :payload zip-bytes})
+        (let [received-files (.getData clip DataFlavor/javaFileListFlavor)]
+          (is (= 1 (count received-files)) "剪贴板应包含一个文件")
+          (is (every? #(instance? File %) received-files) "剪贴板内容应为 File 对象")
+          (is (every? #(.exists %) received-files) "剪贴板中的文件应真实存在于磁盘"))
+        (finally
+          (when original-contents
+            (.setContents clip original-contents nil)))))))
