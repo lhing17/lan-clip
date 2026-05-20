@@ -33,8 +33,14 @@
 
 (defmethod handle-flavor DataFlavor/javaFileListFlavor [clip conf node-id secret-key]
   (let [data (.getData clip DataFlavor/javaFileListFlavor)
-        clnt (client/->Client (:target-host conf) (:target-port conf) data secret-key node-id)]
-    (future (client/run clnt))))
+        max-size-kb (:file-size conf 2048)
+        max-size-bytes (* max-size-kb 1024)
+        oversized (filter #(> (.length ^File %) max-size-bytes) data)]
+    (if (seq oversized)
+      (doseq [^File f oversized]
+        (println "file-too-large:" (.getName f) "(" (.length f) "bytes >" max-size-kb "KB)"))
+      (let [clnt (client/->Client (:target-host conf) (:target-port conf) data secret-key node-id)]
+        (future (client/run clnt))))))
 
 ;; 用于描述剪贴版上内容的类 信息包括内容类型、长度和内容，其中内容类型包括字符串、图像或文件列表
 ;; 如果类型为字符串或图像，长度为字符串或图像的大小，如果类型为文件列表，长度为文件列表中文件数量（List的长度）
