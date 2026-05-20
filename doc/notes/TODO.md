@@ -110,8 +110,8 @@
 
 目标：让文件同步更安全、更可控，避免覆盖和临时目录混乱。
 
-- [ ] P0 新增配置项 `received-files-dir`。
-- [ ] P0 默认接收目录改为应用数据目录下 `received-files`。
+- [x] P0 新增配置项 `received-files-dir`。
+- [x] P0 默认接收目录改为应用数据目录下 `received-files`。
 - [ ] P0 每次接收创建批次目录：`yyyyMMdd-HHmmss-message-id`。
 - [ ] P0 处理同名文件，避免覆盖。
 - [ ] P1 文件 metadata 记录文件名、相对路径、大小、hash。

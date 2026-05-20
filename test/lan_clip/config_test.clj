@@ -15,7 +15,7 @@
     f))
 
 (deftest default-config-has-required-keys
-  (testing "default-config 应包含 :port :target-host :target-port :file-size :interval :secret-key :max-frame-size"
+  (testing "default-config 应包含 :port :target-host :target-port :file-size :interval :secret-key :max-frame-size :received-files-dir"
     (let [d config/default-config]
       (is (map? d))
       (is (contains? d :port))
@@ -24,7 +24,8 @@
       (is (contains? d :file-size))
       (is (contains? d :interval))
       (is (contains? d :secret-key))
-      (is (contains? d :max-frame-size)))))
+      (is (contains? d :max-frame-size))
+      (is (contains? d :received-files-dir)))))
 
 (deftest default-config-has-safe-default-host
   (testing "默认 target-host 必须是 localhost，避免无意中向局域网真实 IP 发送"
@@ -39,7 +40,8 @@
       (with-redefs [config/node-id-path (constantly (.getAbsolutePath temp-node-id-file))]
         (is (false? (.exists missing)))
         (let [loaded (config/load-config (.getAbsolutePath missing))]
-          (is (= config/default-config (dissoc loaded :node-id)))
+          (is (= (dissoc config/default-config :received-files-dir) (dissoc loaded :node-id :received-files-dir)))
+          (is (string? (:received-files-dir loaded)))
           (is (instance? UUID (:node-id loaded))))))))
 
 (deftest load-config-custom-overrides-merge-on-top-of-defaults
@@ -88,6 +90,24 @@
       (with-redefs [config/node-id-path (constantly (.getAbsolutePath temp-node-id-file))]
         (let [cfg (config/load-config nil)]
           (is (= existing-id (:node-id cfg)) "应复用已有的 node-id"))))))
+
+(deftest load-config-custom-received-files-dir
+  (testing "用户提供的 :received-files-dir 应覆盖默认值"
+    (let [f (temp-edn "{:received-files-dir \"/tmp/lan-clip-test-received\"}")
+          loaded (config/load-config (.getAbsolutePath f))]
+      (is (= "/tmp/lan-clip-test-received" (:received-files-dir loaded))))))
+
+(deftest default-received-files-dir-returns-app-data-subdir
+  (testing "default-received-files-dir 应返回 ~/.lan-clip/received-files 的绝对路径"
+    (let [path (config/default-received-files-dir)]
+      (is (string? path))
+      (is (.endsWith path "received-files")))))
+
+(deftest load-config-sets-default-received-files-dir-when-nil
+  (testing "当用户未指定 :received-files-dir 时，load-config 应使用默认目录"
+    (let [loaded (config/load-config nil)]
+      (is (string? (:received-files-dir loaded)))
+      (is (.endsWith (:received-files-dir loaded) "received-files")))))
 
 (deftest load-config-user-node-id-takes-precedence
   (testing "用户配置中显式指定的 node-id 应优先于自动生成的"

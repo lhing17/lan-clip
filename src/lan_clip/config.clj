@@ -18,7 +18,8 @@
    :file-size 2048
    :interval 2000
    :secret-key "lan-clip"
-   :max-frame-size 10485760})
+   :max-frame-size 10485760
+   :received-files-dir nil})
 
 (defn- read-edn-file
   "从指定路径读取 EDN 文件；文件不存在或 path 为 nil 时返回 nil。"
@@ -35,6 +36,12 @@
   (let [home (System/getProperty "user.home")]
     (.getAbsolutePath (jio/file home ".lan-clip" "node-id"))))
 
+(defn default-received-files-dir
+  "返回默认接收文件目录的绝对路径，位于 ~/.lan-clip/received-files。"
+  []
+  (let [home (System/getProperty "user.home")]
+    (.getAbsolutePath (jio/file home ".lan-clip" "received-files"))))
+
 (defn- load-or-create-node-id
   "读取或生成并持久化 node-id UUID。"
   []
@@ -48,9 +55,13 @@
 
 (defn load-config
   "从 path 加载配置并与默认值合并；文件不存在直接返回 default-config。
-  如果配置中不含 :node-id，自动生成并持久化到 ~/.lan-clip/node-id。"
+  如果配置中不含 :node-id，自动生成并持久化到 ~/.lan-clip/node-id。
+  如果 :received-files-dir 为 nil，使用默认目录。"
   [path]
-  (let [cfg (merge default-config (or (read-edn-file path) {}))]
+  (let [cfg (merge default-config (or (read-edn-file path) {}))
+        cfg (if (:received-files-dir cfg)
+              cfg
+              (assoc cfg :received-files-dir (default-received-files-dir)))]
     (if (:node-id cfg)
       cfg
       (assoc cfg :node-id (load-or-create-node-id)))))
