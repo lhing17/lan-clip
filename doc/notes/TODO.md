@@ -130,17 +130,17 @@
 
 目标：把 Clojure 核心变成可被 Tauri 管理的后台服务。
 
-- [ ] P0 选型轻量 HTTP server 依赖。
-- [ ] P0 新建 `src/lan_clip/api.clj`。
-- [ ] P0 实现 `GET /status`。
-- [ ] P0 实现 `GET /config`。
-- [ ] P0 实现 `PUT /config`。
-- [ ] P0 实现 `POST /sync/start`。
-- [ ] P0 实现 `POST /sync/stop`。
+- [x] P0 选型轻量 HTTP server 依赖。
+- [x] P0 新建 `src/lan_clip/api.clj`。
+- [x] P0 实现 `GET /status`。
+- [x] P0 实现 `GET /config`。
+- [x] P0 实现 `PUT /config`。
+- [x] P0 实现 `POST /sync/start`。
+- [x] P0 实现 `POST /sync/stop`。
 - [ ] P1 实现 `GET /logs/recent`。
 - [ ] P1 sidecar 启动成功后输出 ready 标记。
 - [ ] P1 日志落盘，路径可通过状态或配置查询。
-- [ ] P1 配置变更区分热更新和需重启。
+- [x] P1 配置变更区分热更新和需重启。
 - [ ] P2 增加健康检查和版本接口：`GET /version` 或并入 `/status`。
 
 完成标准：
