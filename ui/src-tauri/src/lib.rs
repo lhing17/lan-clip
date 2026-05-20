@@ -1,6 +1,9 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 
 use std::sync::Mutex;
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::TrayIconBuilder;
+use tauri::Manager;
 
 /// Sidecar 进程句柄，用于管理 Clojure 后端生命周期。
 /// 当前为占位实现，后续将接入真实的进程启动/停止逻辑。
@@ -14,6 +17,20 @@ impl Default for SidecarState {
     }
 }
 
+impl SidecarState {
+    pub fn start(&mut self) {
+        self.running = true;
+    }
+
+    pub fn stop(&mut self) {
+        self.running = false;
+    }
+
+    pub fn is_running(&self) -> bool {
+        self.running
+    }
+}
+
 /// 返回 sidecar HTTP API 端口（当前固定为 9615）。
 #[tauri::command]
 fn sidecar_port() -> Result<u16, String> {
@@ -24,7 +41,7 @@ fn sidecar_port() -> Result<u16, String> {
 #[tauri::command]
 fn sidecar_start(state: tauri::State<'_, Mutex<SidecarState>>) -> Result<bool, String> {
     let mut s = state.lock().map_err(|e| e.to_string())?;
-    s.running = true;
+    s.start();
     Ok(true)
 }
 
@@ -32,7 +49,7 @@ fn sidecar_start(state: tauri::State<'_, Mutex<SidecarState>>) -> Result<bool, S
 #[tauri::command]
 fn sidecar_stop(state: tauri::State<'_, Mutex<SidecarState>>) -> Result<bool, String> {
     let mut s = state.lock().map_err(|e| e.to_string())?;
-    s.running = false;
+    s.stop();
     Ok(true)
 }
 
@@ -40,7 +57,7 @@ fn sidecar_stop(state: tauri::State<'_, Mutex<SidecarState>>) -> Result<bool, St
 #[tauri::command]
 fn sidecar_status(state: tauri::State<'_, Mutex<SidecarState>>) -> Result<bool, String> {
     let s = state.lock().map_err(|e| e.to_string())?;
-    Ok(s.running)
+    Ok(s.is_running())
 }
 
 #[cfg(test)]
@@ -50,7 +67,22 @@ mod tests {
     #[test]
     fn sidecar_state_defaults_to_stopped() {
         let state = SidecarState::default();
-        assert!(!state.running);
+        assert!(!state.is_running());
+    }
+
+    #[test]
+    fn sidecar_start_sets_running_to_true() {
+        let mut state = SidecarState::default();
+        state.start();
+        assert!(state.is_running());
+    }
+
+    #[test]
+    fn sidecar_stop_sets_running_to_false() {
+        let mut state = SidecarState::default();
+        state.start();
+        state.stop();
+        assert!(!state.is_running());
     }
 
     #[test]
@@ -61,10 +93,59 @@ mod tests {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(Mutex::new(SidecarState::default()))
         .invoke_handler(tauri::generate_handler![sidecar_start, sidecar_stop, sidecar_status, sidecar_port])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .setup(|app| {
+            // 获取主窗口并设置关闭事件：隐藏窗口而不是退出应用
+            if let Some(window) = app.get_webview_window("main") {
+                let window_clone = window.clone();
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = window_clone.hide();
+                    }
+                });
+            }
+
+            // 创建托盘菜单
+            let open_i = MenuItem::new(app, "打开窗口", true, None::<&str>)?;
+            let quit_i = MenuItem::new(app, "退出", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&open_i, &quit_i])?;
+
+            TrayIconBuilder::new()
+                .menu(&menu)
+                .on_menu_event(move |app_handle, event| {
+                    match event.id().as_ref() {
+                        id if id == open_i.id().as_ref() => {
+                            if let Some(window) = app_handle.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
+                        }
+                        id if id == quit_i.id().as_ref() => {
+                            app_handle.exit(0);
+                        }
+                        _ => {}
+                    }
+                })
+                .build(app)?;
+
+            Ok(())
+        })
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        if let tauri::RunEvent::Exit = event {
+            // 应用退出时停止 sidecar
+            if let Ok(state) = app_handle.state::<Mutex<SidecarState>>().lock() {
+                if state.is_running() {
+                    drop(state);
+                    let _ = app_handle.state::<Mutex<SidecarState>>().lock().map(|mut s| s.stop());
+                }
+            }
+        }
+    });
 }
