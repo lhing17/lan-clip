@@ -23,8 +23,3 @@
   - 在快机器上浪费等待时间
 - **建议**：引入 `CountDownLatch`、promise 或 Netty 的 `EmbeddedChannel` 同步机制实现确定性测试。
 
-### 16. `lib.rs` — `TrayIconBuilder` 事件错误被忽略
-
-- **位置**：`ui/src-tauri/src/lib.rs:165-171`
-- **问题**：托盘菜单的 `emit`、`show`、`set_focus` 等操作使用 `let _ = ...` 忽略错误。若前端事件系统未就绪，操作会静默失败。
-- **建议**：至少记录错误日志，或向用户展示降级提示。

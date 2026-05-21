@@ -204,7 +204,9 @@ pub fn run() {
                 window.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                         api.prevent_close();
-                        let _ = window_clone.hide();
+                        if let Err(e) = window_clone.hide() {
+                            log::warn!("隐藏窗口失败: {}", e);
+                        }
                     }
                 });
             }
@@ -222,16 +224,24 @@ pub fn run() {
                     match event.id().as_ref() {
                         id if id == open_i.id().as_ref() => {
                             if let Some(window) = app_handle.get_webview_window("main") {
-                                let _ = window.show();
-                                let _ = window.set_focus();
+                                if let Err(e) = window.show() {
+                                    log::warn!("显示窗口失败: {}", e);
+                                }
+                                if let Err(e) = window.set_focus() {
+                                    log::warn!("设置窗口焦点失败: {}", e);
+                                }
                             }
                         }
                         id if id == toggle_sync_i.id().as_ref() => {
-                            let _ = app_handle.emit("tray-sync-toggle", ());
+                            if let Err(e) = app_handle.emit("tray-sync-toggle", ()) {
+                                log::warn!("发送托盘同步事件失败: {}", e);
+                            }
                         }
                         id if id == open_dir_i.id().as_ref() => {
                             if let Ok(dir) = received_files_dir() {
-                                let _ = open_directory(&dir);
+                                if let Err(e) = open_directory(&dir) {
+                                    log::warn!("打开接收目录失败: {}", e);
+                                }
                             }
                         }
                         id if id == quit_i.id().as_ref() => {
@@ -251,7 +261,9 @@ pub fn run() {
         if let tauri::RunEvent::Exit = event {
             // 应用退出时停止 sidecar
             if let Ok(mut state) = app_handle.state::<Mutex<SidecarState>>().lock() {
-                let _ = state.stop();
+                if let Err(e) = state.stop() {
+                    log::warn!("应用退出时停止 sidecar 失败: {}", e);
+                }
             }
         }
     });
