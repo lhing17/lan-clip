@@ -52,6 +52,14 @@ export interface HistoryEntry {
   peer?: string;
 }
 
+export interface Peer {
+  nodeId?: string;
+  deviceName?: string;
+  host?: string;
+  port?: number;
+  version?: number;
+}
+
 function kebabToCamel(s: string): string {
   const base = s.replace(/\?$/, "");
   return base.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
@@ -204,5 +212,20 @@ export async function fetchHistory(limit = 20): Promise<HistoryEntry[]> {
     type: String((m as Record<string, unknown>).type ?? ""),
     size: Number((m as Record<string, unknown>).size ?? 0),
     peer: String((m as Record<string, unknown>).peer ?? ""),
+  }));
+}
+
+export async function fetchPeers(): Promise<Peer[]> {
+  const res = await fetch(sidecarUrl("/peers"));
+  if (!res.ok) throw new Error(`Status ${res.status}`);
+  const text = await res.text();
+  const parsed = parseEdnResponse(text);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.map((m) => ({
+    nodeId: String((m as Record<string, unknown>).nodeId ?? ""),
+    deviceName: String((m as Record<string, unknown>).deviceName ?? ""),
+    host: String((m as Record<string, unknown>).host ?? ""),
+    port: Number((m as Record<string, unknown>).port ?? 0),
+    version: Number((m as Record<string, unknown>).version ?? 1),
   }));
 }
