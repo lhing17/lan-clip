@@ -1,6 +1,7 @@
 (ns lan-clip.socket.server
   (:require
    [clojure.java.io :as jio]
+   [lan-clip.log :as log]
    [lan-clip.socket.protocol-codec :as codec]
    [lan-clip.fingerprint :as fingerprint]
    [lan-clip.util :as util])
@@ -77,7 +78,7 @@
           (ReferenceCountUtil/release msg)
           (.close ctx))))
     (exceptionCaught [ctx cause]
-      (.printStackTrace cause)
+      (log/log! :error (str cause))
       (.close ctx))))
 
 (defn start-server

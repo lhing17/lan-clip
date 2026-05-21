@@ -1,6 +1,7 @@
 (ns lan-clip.socket.client
   (:gen-class)
-  (:require [lan-clip.socket.protocol-codec :as codec])
+  (:require [lan-clip.log :as log]
+            [lan-clip.socket.protocol-codec :as codec])
   (:import (io.netty.channel.nio NioEventLoopGroup)
            (io.netty.bootstrap Bootstrap)
            (io.netty.channel ChannelFuture ChannelOption ChannelInitializer ChannelHandler ChannelInboundHandlerAdapter)
@@ -25,7 +26,7 @@
           (.writeAndFlush ctx content)))
 
       (exceptionCaught [ctx cause]
-        (.printStackTrace cause)
+        (log/log! :error (str cause))
         (.close ctx))))
 
 (defn get-handlers [content secret-key node-id]

@@ -42,12 +42,6 @@
 
 ## P2 — 技术债（不影响当前功能，长期维护成本）
 
-### 11. 多处 — 裸 `.printStackTrace` 散布
-
-- **位置**：`server.clj:77`、`client.clj:28`、`watcher.clj:21` 等
-- **问题**：异常处理使用裸 `(.printStackTrace e)`，而不是统一的日志系统。导致错误信息无法被 `log/recent-logs` 捕获，也难以在生产环境中排查。
-- **建议**：统一替换为 `log/log! :error ...`。
-
 ### 13. `api.clj` — CORS 设置为 `*`
 
 - **位置**：`src/lan_clip/api.clj:35-38`
