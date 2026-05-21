@@ -36,15 +36,19 @@
   [cfg]
   (apply dissoc cfg sensitive-keys))
 
-(def ^:private cors-headers
-  {"Access-Control-Allow-Origin" "*"
-   "Access-Control-Allow-Methods" "GET, POST, PUT, OPTIONS"
-   "Access-Control-Allow-Headers" "Content-Type"})
+(def ^:private allowed-origins
+  "允许的 CORS 来源集合。"
+  #{"http://localhost" "tauri://localhost"})
 
 (defn- with-cors
-  "为响应 map 添加 CORS 头。"
-  [response]
-  (update response :headers merge cors-headers))
+  "为响应 map 添加 CORS 头，根据请求的 Origin 动态设置 Allow-Origin。"
+  [req response]
+  (let [origin (get-in req [:headers "origin"])
+        allowed-origin (if (allowed-origins origin) origin "http://localhost")]
+    (update response :headers merge
+            {"Access-Control-Allow-Origin" allowed-origin
+             "Access-Control-Allow-Methods" "GET, POST, PUT, OPTIONS"
+             "Access-Control-Allow-Headers" "Content-Type"})))
 
 (defn- handler* [req]
   (case [(:request-method req) (:uri req)]
@@ -116,8 +120,8 @@
 
 (defn- handler [req]
   (if (= :options (:request-method req))
-    (with-cors {:status 204})
-    (with-cors (handler* req))))
+    (with-cors req {:status 204})
+    (with-cors req (handler* req))))
 
 (defn start-api-server
   "启动 HTTP API server，返回 server 对象（一个可调用的停止函数）。"

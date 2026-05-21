@@ -326,7 +326,7 @@
         (Thread/sleep 200)
         (let [{:keys [status headers]} @(http/options (str "http://localhost:" port "/status"))]
           (is (= 204 status))
-          (is (= "*" (:access-control-allow-origin headers)))
+          (is (= "http://localhost" (:access-control-allow-origin headers)))
           (is (string? (:access-control-allow-methods headers))))
         (finally
           (api/stop-api-server server)
@@ -340,7 +340,7 @@
         (Thread/sleep 200)
         (let [{:keys [status headers]} @(http/get (str "http://localhost:" port "/status"))]
           (is (= 200 status))
-          (is (= "*" (:access-control-allow-origin headers))))
+          (is (= "http://localhost" (:access-control-allow-origin headers))))
         (finally
           (api/stop-api-server server)
           (Thread/sleep 200))))))

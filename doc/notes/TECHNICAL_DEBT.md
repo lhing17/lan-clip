@@ -42,12 +42,6 @@
 
 ## P2 — 技术债（不影响当前功能，长期维护成本）
 
-### 13. `api.clj` — CORS 设置为 `*`
-
-- **位置**：`src/lan_clip/api.clj:35-38`
-- **问题**：`Access-Control-Allow-Origin: *` 允许任意来源。虽然 sidecar 仅绑定 localhost，风险可控，但不够严谨。
-- **建议**：限制为 `http://localhost` 或 `tauri://localhost`。
-
 ### 14. 测试 — 大量 `Thread/sleep` 做同步
 
 - **位置**：`acceptance_test.clj`、`server_test.clj`、`app_test.clj` 等
