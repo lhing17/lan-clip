@@ -60,7 +60,8 @@
 
 目标：在 MVP 稳定后补足产品体验。
 
-- [ ] P3 评估是否把 Clojure sidecar 迁移到 Rust/Tauri 后端。
+- [x] P3 评估是否把 Clojure sidecar 迁移到 Rust/Tauri 后端。
+  - 结论：短期推荐 jlink 精简 JRE 方案，中长期视 Rust 剪贴板生态成熟度决定是否全量迁移。详见 `doc/notes/rust-migration-evaluation.md`。
 
 完成标准：
 
