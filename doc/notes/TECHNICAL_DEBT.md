@@ -14,12 +14,6 @@
 - **问题**：`handle-flavor` 的每个方法内部都执行 `future (client/run clnt)`。如果剪贴板内容快速变化（如用户连续复制），会创建大量并发的 Netty 客户端 future，既消耗线程又可能引发连接风暴。
 - **建议**：引入发送队列或节流机制（如 100ms debounce），限制并发客户端数量。
 
-### 2. `server.clj` — `start-server` stop 阻塞 10 秒
-
-- **位置**：`src/lan_clip/socket/server.clj:111-114`
-- **问题**：`:stop!` 使用 `(deref channel-promise 10000 nil)` 等待 channel。如果启动阶段失败（如端口被占用），`channel-promise` 永不被 deliver，`stop!` 会阻塞整整 10 秒。
-- **建议**：将 `channel-promise` 的 deliver 逻辑与启动异常处理结合，失败时立即 deliver `nil` 或异常。
-
 ### 4. `api.clj` — `PUT /config` 缺少输入验证
 
 - **位置**：`src/lan_clip/api.clj:60-73`

@@ -109,6 +109,8 @@
                      (deliver channel-promise (.channel f))
                      (-> f (.channel) (.closeFuture) (.sync)))
                    (finally
+                     (when-not (realized? channel-promise)
+                       (deliver channel-promise nil))
                      (.shutdownGracefully boss-group)
                      (.shutdownGracefully worker-group)))))
      :stop! (fn []

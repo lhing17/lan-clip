@@ -157,3 +157,14 @@
         (finally
           (when original-contents
             (.setContents clip original-contents nil)))))))
+
+(deftest server-stop-does-not-block-when-start-fails
+  (testing "当端口被占用导致启动失败时，stop! 不应阻塞 10 秒"
+    (let [port (random-port)]
+      (with-open [ss (ServerSocket. port)]
+        (let [ctrl (server/start-server port "test-secret" 10485760)]
+          (Thread/sleep 500)
+          (let [start (System/currentTimeMillis)
+                _ ((:stop! ctrl))
+                elapsed (- (System/currentTimeMillis) start)]
+            (is (< elapsed 1000) (str "stop! 应在 1 秒内返回，实际耗时 " elapsed " ms"))))))))
