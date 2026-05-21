@@ -72,13 +72,7 @@
 - **问题**：`lan-clip` 函数仍使用旧版不可停止的 `util/set-interval`，与新的 `app/start!` 生命周期并存，容易造成混淆。`set-interval` 的 `while true` 循环一旦启动无法优雅停止。
 - **建议**：删除废弃的 `lan-clip` 入口和 `set-interval` 函数，或添加 `@deprecated` 注释。
 
-### 11. `socket/content.clj` — 完全未使用的遗留代码
-
-- **位置**：`src/lan_clip/socket/content.clj`
-- **问题**：`Content` deftype 是早期 Java 序列化时代的产物，当前协议已完全替换为 `protocol.clj` 的二进制格式。
-- **建议**：直接删除此文件。
-
-### 12. 多处 — 裸 `.printStackTrace` 散布
+### 11. 多处 — 裸 `.printStackTrace` 散布
 
 - **位置**：`server.clj:77`、`client.clj:28`、`watcher.clj:21` 等
 - **问题**：异常处理使用裸 `(.printStackTrace e)`，而不是统一的日志系统。导致错误信息无法被 `log/recent-logs` 捕获，也难以在生产环境中排查。
