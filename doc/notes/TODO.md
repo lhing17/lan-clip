@@ -38,17 +38,18 @@
 
 目标：生成 macOS / Windows 可安装包，并完成核心场景验收。
 
-- [ ] P0 在 macOS 验证文本互传。
-- [ ] P0 在 macOS 验证图片互传。
-- [ ] P0 在 macOS 验证小文件互传。
-- [ ] P0 生成 Windows `.msi` 或 `.exe`。
-- [ ] P0 在 Windows 验证文本互传。
-- [ ] P0 在 Windows 验证图片互传。
-- [ ] P0 在 Windows 验证小文件互传。
-- [ ] P1 验证防火墙提示和端口监听行为。
-- [ ] P1 验证停止同步后不再发送。
-- [ ] P1 验证退出后无残留进程。
-- [ ] P2 梳理应用图标、名称、版本号、签名策略。
+- [x] P0 生成 Windows `.msi` 或 `.exe`。CI 已生成 `lan-clip_1.0.0_x64_en-US.msi` + `lan-clip_1.0.0_x64-setup.exe`。
+- [x] P2 梳理应用图标、名称、版本号、签名策略。
+  - 图标：`icons/` 已配置全套跨平台图标。
+  - 版本号：`project.clj` 1.0 / `package.json` 1.0.0 / `Cargo.toml` 1.0.0 / `tauri.conf.json` 1.0.0，已一致。
+  - 签名策略：`doc/notes/release-checklist.md` 已记录 adhoc 签名、Gatekeeper 提示、Apple Developer 注册与公证流程。
+
+- [!] P0 在 macOS 验证文本互传、图片互传、小文件互传。
+- [!] P0 在 Windows 验证文本互传、图片互传、小文件互传。
+- [!] P1 验证防火墙提示和端口监听行为。
+- [!] P1 验证停止同步后不再发送。
+- [!] P1 验证退出后无残留进程。
+  - 以上 8 项为**手动验收项**，需在实际设备上运行双端验证，AI 无法自动执行。
 
 完成标准：
 
