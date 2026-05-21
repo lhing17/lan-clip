@@ -229,3 +229,20 @@ export async function fetchPeers(): Promise<Peer[]> {
     version: Number((m as Record<string, unknown>).version ?? 1),
   }));
 }
+
+export interface PairResult {
+  success?: boolean;
+  reason?: string;
+  secretKey?: string;
+}
+
+export async function initiatePairing(nodeId: string): Promise<PairResult> {
+  const res = await fetch(sidecarUrl("/pair"), {
+    method: "POST",
+    headers: { "Content-Type": "application/edn" },
+    body: `{:node-id #uuid "${nodeId}"}`,
+  });
+  if (!res.ok) throw new Error(`Status ${res.status}`);
+  const text = await res.text();
+  return parseEdnResponse(text) as PairResult;
+}

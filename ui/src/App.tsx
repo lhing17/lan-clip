@@ -11,6 +11,7 @@ import {
   fetchRecentLogs,
   fetchHistory,
   fetchPeers,
+  initiatePairing,
   enableAutostart,
   disableAutostart,
   getAutostartStatus,
@@ -245,6 +246,8 @@ function ConfigPage() {
   const [autostart, setAutostart] = useState<boolean | null>(null);
   const [peers, setPeers] = useState<Peer[]>([]);
   const [peersLoading, setPeersLoading] = useState(false);
+  const [pairingNodeId, setPairingNodeId] = useState<string | null>(null);
+  const [pairMsg, setPairMsg] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSidecarConfig()
@@ -326,10 +329,35 @@ function ConfigPage() {
     }));
   }
 
+  async function pairWith(peer: Peer) {
+    if (!peer.nodeId) return;
+    setPairingNodeId(peer.nodeId);
+    setPairMsg(null);
+    try {
+      const result = await initiatePairing(peer.nodeId);
+      if (result.success) {
+        setPairMsg(`已与 ${peer.deviceName || "设备"} 配对成功，共享密钥已更新。`);
+        setConfig((prev) => ({
+          ...prev,
+          targetHost: peer.host ?? prev.targetHost,
+          targetPort: peer.port ?? prev.targetPort,
+          secretKey: result.secretKey ?? prev.secretKey,
+        }));
+      } else {
+        setPairMsg(`配对失败：${result.reason ?? "未知错误"}`);
+      }
+    } catch (e) {
+      setPairMsg("配对失败：" + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setPairingNodeId(null);
+    }
+  }
+
   return (
     <section className="card">
       <h2>应用配置</h2>
       {saveMsg && <div className="info-banner">{saveMsg}</div>}
+      {pairMsg && <div className="info-banner">{pairMsg}</div>}
       <form onSubmit={handleSubmit} className="config-form">
         <label>
           <span>设备名</span>
@@ -397,6 +425,14 @@ function ConfigPage() {
                     <span className="peer-meta">
                       {p.host}:{p.port}
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="toggle-btn small pair-btn"
+                    onClick={() => pairWith(p)}
+                    disabled={pairingNodeId === p.nodeId}
+                  >
+                    {pairingNodeId === p.nodeId ? "配对中..." : "配对"}
                   </button>
                 </li>
               ))}

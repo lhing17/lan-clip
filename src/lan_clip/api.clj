@@ -159,6 +159,26 @@
        :headers {"Content-Type" "application/edn"}
        :body (pr-str (discovery/recent-peers registry self-id))})
 
+    [:post "/pair"]
+    (let [body-str (slurp (:body req))]
+      (try
+        (let [body (edn/read-string body-str)
+              node-id (:node-id body)
+              registry (app/current-discovery-registry)
+              peer (get @registry node-id)]
+          (if peer
+            (let [result (app/initiate-pairing! peer @config-path-atom)]
+              {:status 200
+               :headers {"Content-Type" "application/edn"}
+               :body (pr-str result)})
+            {:status 404
+             :headers {"Content-Type" "application/edn"}
+             :body (pr-str {:success? false :reason "peer not found"})}))
+        (catch Exception e
+          {:status 400
+           :headers {"Content-Type" "application/edn"}
+           :body (pr-str {:success? false :reason (.getMessage e)})})))
+
     (let [method (:request-method req)
           uri (:uri req)]
       (cond

@@ -50,6 +50,48 @@
 
 (declare stop!)
 
+(defn handle-pair-request
+  "处理收到的配对请求：自动接受，更新配置，发送响应。"
+  [sender-host msg config-path]
+  (let [current (or (config/load-config config-path) config/default-config)
+        updated (merge current
+                       {:target-host sender-host
+                        :target-port (:port msg)
+                        :secret-key (:secret-key msg)})]
+    (config/save-config! config-path updated)
+    (println "pair-accepted:" (:device-name msg) "(" sender-host ")")))
+
+(defn handle-pair-response
+  "处理收到的配对响应：如接受则更新配置。"
+  [sender-host msg config-path]
+  (when (= :accepted (:status msg))
+    (let [current (or (config/load-config config-path) config/default-config)
+          updated (merge current
+                         {:target-host sender-host
+                          :target-port (:port msg)})]
+      (config/save-config! config-path updated)
+      (println "pair-completed:" (:device-name msg) "(" sender-host ")"))))
+
+(defn initiate-pairing!
+  "向指定 peer 发起配对请求。peer 应为 recent-peers 返回的 map。
+  生成随机共享密钥，发送 pair-request，返回 {:success? true/false :reason ...}。"
+  [peer config-path]
+  (if-let [st @app-state]
+    (let [cfg (:config st)
+          socket (get-in st [:discovery :sender-socket])]
+      (if socket
+        (let [secret-key (str (java.util.UUID/randomUUID))]
+          (discovery/send-pair-request! socket
+                                        (:host peer)
+                                        discovery/discovery-port
+                                        (:node-id cfg)
+                                        (:device-name cfg)
+                                        (:port cfg)
+                                        secret-key)
+          {:success? true :secret-key secret-key})
+        {:success? false :reason "discovery not running"}))
+    {:success? false :reason "app not running"}))
+
 (defn start!
   "启动 lan-clip 应用。
   - conf-path: 配置文件路径字符串；传 nil 时使用默认配置。
@@ -75,7 +117,9 @@
      (let [d-ctrl (discovery/start-discovery (:node-id validated)
                                              (:device-name validated)
                                              (:port validated)
-                                             discovery-registry)]
+                                             discovery-registry
+                                             :on-pair-request #(handle-pair-request %1 %2 conf-path)
+                                             :on-pair-response #(handle-pair-response %1 %2 conf-path))]
        (reset! app-state {:running? true
                           :config   validated
                           :watcher  w-ctrl
