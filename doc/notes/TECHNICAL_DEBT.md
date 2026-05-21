@@ -51,12 +51,6 @@
   - 在快机器上浪费等待时间
 - **建议**：引入 `CountDownLatch`、promise 或 Netty 的 `EmbeddedChannel` 同步机制实现确定性测试。
 
-### 15. `protocol.clj` — 消息大小计算的隐式 long→int 转换
-
-- **位置**：`src/lan_clip/protocol.clj:78`
-- **问题**：`total-size` 由 Clojure `+` 计算为 `long`，传入 `ByteBuffer/allocate` 时隐式转 `int`。如果 payload 极大（接近 2GB），可能静默溢出。
-- **建议**：由于 `max-frame-size` 已限制实际大小，当前风险低。可在 `encode-message` 中加入显式上限检查。
-
 ### 16. `lib.rs` — `TrayIconBuilder` 事件错误被忽略
 
 - **位置**：`ui/src-tauri/src/lib.rs:165-171`

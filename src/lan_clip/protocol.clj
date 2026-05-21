@@ -75,22 +75,25 @@
         metadata-len (count metadata-bytes)
         payload-len (count payload-bytes)
         body-size (+ metadata-len payload-len)
-        total-size (+ HEADER-SIZE body-size HMAC-SIZE)
-        buf (ByteBuffer/allocate total-size)]
-    (.putInt buf MAGIC)
-    (.put buf (byte VERSION))
-    (.put buf (uuid->bytes message-id))
-    (.put buf (uuid->bytes origin-node-id))
-    (.put buf (uuid->bytes sender-node-id))
-    (.put buf (content-type->byte content-type))
-    (.putInt buf metadata-len)
-    (.putInt buf payload-len)
-    (.put buf metadata-bytes)
-    (.put buf payload-bytes)
-    (let [data (Arrays/copyOfRange (.array buf) 0 (+ HEADER-SIZE body-size))
-          sig (hmac-sha256 data secret-key)]
-      (.put buf sig))
-    (.array buf)))
+        total-size (+ HEADER-SIZE body-size HMAC-SIZE)]
+    (when (> total-size Integer/MAX_VALUE)
+      (throw (ex-info "Message too large for ByteBuffer"
+                      {:cause :message-too-large :size total-size :max Integer/MAX_VALUE})))
+    (let [buf (ByteBuffer/allocate total-size)]
+      (.putInt buf MAGIC)
+      (.put buf (byte VERSION))
+      (.put buf (uuid->bytes message-id))
+      (.put buf (uuid->bytes origin-node-id))
+      (.put buf (uuid->bytes sender-node-id))
+      (.put buf (content-type->byte content-type))
+      (.putInt buf metadata-len)
+      (.putInt buf payload-len)
+      (.put buf metadata-bytes)
+      (.put buf payload-bytes)
+      (let [data (Arrays/copyOfRange (.array buf) 0 (+ HEADER-SIZE body-size))
+            sig (hmac-sha256 data secret-key)]
+        (.put buf sig))
+      (.array buf))))
 
 (defn encode-text-message
   "将文本消息编码为带 HMAC 签名的二进制字节数组。"

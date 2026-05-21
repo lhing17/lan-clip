@@ -42,3 +42,4 @@
 #2026-05-21 修复 TECHNICAL_DEBT.md #10：删除 `core.clj` 中废弃的 `lan-clip` 入口函数及其对 `util/set-interval` 的调用；删除 `util.clj` 中不可停止的 `set-interval` 函数。`lein test` 111 测试 / 322 断言全绿。TECHNICAL_DEBT.md 删除对应条目。
 #2026-05-21 修复 TECHNICAL_DEBT.md #11：`watcher.clj`、`client.clj`、`server.clj` 中裸 `.printStackTrace` 统一替换为 `log/log! :error`；三个文件均引入 `lan-clip.log` 命名空间。`lein test` 111 测试 / 322 断言全绿。TECHNICAL_DEBT.md 删除对应条目。
 #2026-05-21 修复 TECHNICAL_DEBT.md #13：`api.clj` CORS 由固定 `*` 改为根据请求 Origin 动态回显，只允许 `http://localhost` 和 `tauri://localhost`；无 Origin 头时默认回退到 `http://localhost`。同步更新 `api_test.clj` 中 CORS 相关断言。`lein test` 111 测试 / 322 断言全绿。TECHNICAL_DEBT.md 删除对应条目。
+#2026-05-21 修复 TECHNICAL_DEBT.md #15：`protocol.clj` `encode-message` 中在 `ByteBuffer/allocate` 前加入显式上限检查，当 `total-size` 超过 `Integer/MAX_VALUE` 时抛出 `ex-info`（`:cause :message-too-large`），消除隐式 long→int 转换的静默溢出风险。`lein test` 111 测试 / 322 断言全绿。TECHNICAL_DEBT.md 删除对应条目。
