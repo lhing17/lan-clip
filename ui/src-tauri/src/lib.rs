@@ -1,8 +1,10 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 
+use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use tauri::menu::{Menu, MenuItem};
+use tauri::path::BaseDirectory;
 use tauri::tray::TrayIconBuilder;
 use tauri::{Emitter, Manager};
 
@@ -19,14 +21,16 @@ impl Default for SidecarState {
 }
 
 impl SidecarState {
-    pub fn start(&mut self) -> Result<(), String> {
+    pub fn start_with_path(&mut self, jar_path: &PathBuf) -> Result<(), String> {
         if self.is_running() {
             return Ok(());
         }
-        let jar_path = find_jar_path()?;
+        if !jar_path.exists() {
+            return Err(format!("uberjar 不存在: {}", jar_path.display()));
+        }
         let child = Command::new("java")
             .arg("-jar")
-            .arg(&jar_path)
+            .arg(jar_path)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
@@ -57,18 +61,27 @@ impl SidecarState {
     }
 }
 
-/// 查找 lan-clip uberjar 路径。
-/// 开发模式：从 CARGO_MANIFEST_DIR（ui/src-tauri）推导至项目根目录 target/。
-/// 生产模式：在应用可执行文件同级目录查找。
-fn find_jar_path() -> Result<std::path::PathBuf, String> {
-    if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
-        let path = std::path::PathBuf::from(manifest_dir)
-            .join("../../target/lan-clip-1.0-standalone.jar");
+/// 解析 lan-clip uberjar 路径。
+/// 优先级：1) Tauri 资源目录（打包后）；2) CARGO_MANIFEST_DIR 推导（开发模式）；3) 可执行文件同级目录。
+fn resolve_jar_path<R: tauri::Runtime>(
+    app_handle: &tauri::AppHandle<R>,
+) -> Result<PathBuf, String> {
+    // 1) 资源目录（Tauri 打包后）
+    if let Ok(path) = app_handle.path().resolve("lan-clip-1.0-standalone.jar", BaseDirectory::Resource) {
         if path.exists() {
             return Ok(path);
         }
     }
 
+    // 2) 开发模式：从 CARGO_MANIFEST_DIR（ui/src-tauri）推导至项目根目录 target/
+    if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
+        let path = PathBuf::from(manifest_dir).join("../../target/lan-clip-1.0-standalone.jar");
+        if path.exists() {
+            return Ok(path);
+        }
+    }
+
+    // 3) 可执行文件同级目录
     if let Ok(exe_path) = std::env::current_exe() {
         if let Some(exe_dir) = exe_path.parent() {
             let path = exe_dir.join("lan-clip-1.0-standalone.jar");
@@ -89,9 +102,13 @@ fn sidecar_port() -> Result<u16, String> {
 
 /// 启动 Clojure sidecar。
 #[tauri::command]
-fn sidecar_start(state: tauri::State<'_, Mutex<SidecarState>>) -> Result<bool, String> {
+fn sidecar_start(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<SidecarState>>,
+) -> Result<bool, String> {
     let mut s = state.lock().map_err(|e| e.to_string())?;
-    s.start()?;
+    let jar_path = resolve_jar_path(&app_handle)?;
+    s.start_with_path(&jar_path)?;
     Ok(true)
 }
 
@@ -147,7 +164,7 @@ mod tests {
         let mut state = SidecarState::default();
         // 未找到 uberjar 时应返回错误
         std::env::remove_var("CARGO_MANIFEST_DIR");
-        let result = state.start();
+        let result = state.start_with_path(&PathBuf::from("/nonexistent.jar"));
         assert!(result.is_err());
 
         // stop 不应 panic
@@ -170,14 +187,6 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let result = open_directory(temp_dir.to_str().unwrap());
         assert!(result.is_ok());
-    }
-
-    #[test]
-    fn find_jar_path_falls_back_to_exe_dir() {
-        std::env::remove_var("CARGO_MANIFEST_DIR");
-        let result = find_jar_path();
-        // 当前目录下无 jar，应返回错误
-        assert!(result.is_err());
     }
 }
 
