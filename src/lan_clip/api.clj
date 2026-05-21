@@ -27,7 +27,10 @@
     (cond-> (merge st
                    {:version app-version
                     :protocol-version protocol-version})
-      (:running? st) (assoc :node-id (get-in st [:config :node-id])))))
+      (:running? st) (assoc :node-id (get-in st [:config :node-id])
+                            :peer-count (count (discovery/recent-peers
+                                                 (app/current-discovery-registry)
+                                                 (get-in st [:config :node-id])))))))
 
 (def ^:private sensitive-keys
   "需要过滤的敏感配置字段集合。"

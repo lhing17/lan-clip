@@ -12,6 +12,7 @@ export interface SidecarStatus {
   version?: string;
   protocolVersion?: number;
   nodeId?: string;
+  peerCount?: number;
   config?: {
     port?: number;
     targetHost?: string;

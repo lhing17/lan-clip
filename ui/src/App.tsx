@@ -30,6 +30,7 @@ interface AppState {
   syncRunning: boolean;
   nodeId: string | null;
   listenPort: number | null;
+  peerCount: number | null;
   error: string | null;
 }
 
@@ -42,6 +43,7 @@ function App() {
     syncRunning: false,
     nodeId: null,
     listenPort: null,
+    peerCount: null,
     error: null,
   });
   const [loading, setLoading] = useState(false);
@@ -61,6 +63,7 @@ function App() {
           syncRunning: status?.running ?? false,
           nodeId: status?.nodeId ?? config?.nodeId ?? null,
           listenPort: config?.port ?? null,
+          peerCount: status?.peerCount ?? null,
         }));
       } else {
         setState((prev) => ({
@@ -68,6 +71,7 @@ function App() {
           syncRunning: false,
           nodeId: null,
           listenPort: null,
+          peerCount: null,
         }));
       }
     } catch (e) {
@@ -218,6 +222,12 @@ function App() {
                 <span className="status-label">监听端口</span>
                 <span className="status-value">
                   {state.listenPort ?? "—"}
+                </span>
+              </div>
+              <div className="status-row">
+                <span className="status-label">活跃 peers</span>
+                <span className="status-value">
+                  {state.peerCount !== null ? `${state.peerCount} 个` : "—"}
                 </span>
               </div>
               <button
