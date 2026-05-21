@@ -11,6 +11,19 @@
            (java.io File)
            (java.util UUID)))
 
+;; 用于描述剪贴版上内容的类 信息包括内容类型、长度和内容，其中内容类型包括字符串、图像或文件列表
+;; 如果类型为字符串或图像，长度为字符串或图像的大小，如果类型为文件列表，长度为文件列表中文件数量（List的长度）
+;; 内容为实际数据的md5值
+(defrecord ClipboardData [^DataFlavor flavor length contents])
+
+(def ^:private in-flight-send (atom nil))
+
+(defn- send-client [client]
+  "启动新的发送 future，并取消上一个仍在飞行中的 future（latest-wins 策略）。"
+  (when-let [old @in-flight-send]
+    (future-cancel old))
+  (reset! in-flight-send (future (client/run client))))
+
 (defn- best-fit-flavor
   "获取最适合当前剪贴板内容的flavor，根据测试结果，选择了文件列表>图像>字符串，这样可以使MacOS和Windows上的表现一致。"
   [^Clipboard clip _]
@@ -25,12 +38,12 @@
 (defmethod handle-flavor DataFlavor/stringFlavor [clip conf node-id secret-key]
   (let [data (.getData clip DataFlavor/stringFlavor)
         clnt (client/->Client (:target-host conf) (:target-port conf) data secret-key node-id)]
-    (future (client/run clnt))))
+    (send-client clnt)))
 
 (defmethod handle-flavor DataFlavor/imageFlavor [clip conf node-id secret-key]
   (let [data (.getData clip DataFlavor/imageFlavor)
         clnt (client/->Client (:target-host conf) (:target-port conf) data secret-key node-id)]
-    (future (client/run clnt))))
+    (send-client clnt)))
 
 (defmethod handle-flavor DataFlavor/javaFileListFlavor [clip conf node-id secret-key]
   (let [data (.getData clip DataFlavor/javaFileListFlavor)
@@ -41,12 +54,7 @@
       (doseq [^File f oversized]
         (println "file-too-large:" (.getName f) "(" (.length f) "bytes >" max-size-kb "KB)"))
       (let [clnt (client/->Client (:target-host conf) (:target-port conf) data secret-key node-id)]
-        (future (client/run clnt))))))
-
-;; 用于描述剪贴版上内容的类 信息包括内容类型、长度和内容，其中内容类型包括字符串、图像或文件列表
-;; 如果类型为字符串或图像，长度为字符串或图像的大小，如果类型为文件列表，长度为文件列表中文件数量（List的长度）
-;; 内容为实际数据的md5值
-(defrecord ClipboardData [^DataFlavor flavor length contents])
+        (send-client clnt)))))
 
 (def clip-data
   "临时存储每次复制后剪切版上的信息，如果非空，为`ClipboardData`类型的对象"

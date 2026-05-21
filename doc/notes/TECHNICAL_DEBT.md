@@ -8,12 +8,6 @@
 
 ## P1 — 近期修复（影响功能正确性或可维护性）
 
-### 1. `core.clj` — 剪贴板快速变化时堆积未限制的 future
-
-- **位置**：`src/lan_clip/core.clj:22-43`
-- **问题**：`handle-flavor` 的每个方法内部都执行 `future (client/run clnt)`。如果剪贴板内容快速变化（如用户连续复制），会创建大量并发的 Netty 客户端 future，既消耗线程又可能引发连接风暴。
-- **建议**：引入发送队列或节流机制（如 100ms debounce），限制并发客户端数量。
-
 ### 4. `api.clj` — `PUT /config` 缺少输入验证
 
 - **位置**：`src/lan_clip/api.clj:60-73`

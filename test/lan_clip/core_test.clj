@@ -96,3 +96,14 @@
                        (handle-flavor mock-clip conf (UUID/randomUUID) "secret"))]
           (is (false? @sent) "超限文件不应发送")
           (is (re-find #"file-too-large" output) "应包含 file-too-large 日志"))))))
+
+(deftest send-client-cancels-previous-in-flight
+  (testing "连续快速调用 send-client 应取消上一个仍在飞行中的 future"
+    (with-redefs [client/run (fn [_] (Thread/sleep 500))]
+      (let [mock-client (reify client/RunnableClient (run [_] (client/run nil)))
+            f1 (#'lan-clip.core/send-client mock-client)]
+        (Thread/sleep 50)
+        (let [f2 (#'lan-clip.core/send-client mock-client)]
+          (is (future-cancelled? f1) "旧 future 应被取消")
+          (is (= f2 @@#'lan-clip.core/in-flight-send) "in-flight-send 应指向最新 future")
+          (future-cancel f2))))))
