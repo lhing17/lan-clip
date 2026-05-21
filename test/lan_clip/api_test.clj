@@ -70,6 +70,25 @@
           (finally
             (api/stop-api-server server)
             ))))))
+(deftest api-status-includes-peer-count-when-running
+  (testing "GET /status 当应用运行时应返回 peer-count"
+    (with-redefs [app/status (fn [] {:running? true
+                                     :config {:port 9002
+                                              :node-id #uuid "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}})
+                  app/current-discovery-registry (fn [] (atom {}))]
+      (let [port (random-port)
+            server (api/start-api-server port)]
+        (try
+          (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/status"))
+                body-str (slurp body)
+                parsed (clojure.edn/read-string body-str)]
+            (is (= 200 status))
+            (is (contains? parsed :peer-count))
+            (is (int? (:peer-count parsed)))
+            (is (= 0 (:peer-count parsed))))
+          (finally
+            (api/stop-api-server server)
+            ))))))
 (deftest api-config-returns-default-config-when-not-running
   (testing "GET /config 当应用未运行时应返回默认配置（不含敏感字段）"
     (app/stop!)

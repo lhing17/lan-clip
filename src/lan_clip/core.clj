@@ -2,6 +2,7 @@
   (:gen-class)
   (:require [lan-clip.app :as app]
             [lan-clip.config :as config]
+            [lan-clip.discovery :as discovery]
             [lan-clip.fingerprint :as fingerprint]
             [lan-clip.history :as history]
             [lan-clip.socket.client :as client]
@@ -17,17 +18,19 @@
 ;; 内容为实际数据的md5值
 (defrecord ClipboardData [^DataFlavor flavor length contents])
 
-(def ^:private in-flight-send (atom nil))
+(def ^:private in-flight-sends (atom {}))
 
-(defn- send-client [client]
-  "启动新的发送 future，并取消上一个仍在飞行中的 future（latest-wins 策略）。
-  使用配置中的 :retry-count 和 :retry-delay-ms 控制重试行为。"
-  (when-let [old @in-flight-send]
-    (future-cancel old))
-  (let [conf (or (app/current-config) config/default-config)
-        retry-count (:retry-count conf 3)
-        retry-delay-ms (:retry-delay-ms conf 1000)]
-    (reset! in-flight-send (future (client/run-with-retry client retry-count retry-delay-ms)))))
+(defn- peer-key [host port]
+  (str host ":" port))
+
+(defn- send-to-peer [host port client-data secret-key node-id retry-count retry-delay-ms]
+  "向单个 peer 发送剪贴板内容。每个 peer 拥有独立的 in-flight future，采用 latest-wins 策略。"
+  (let [key (peer-key host port)]
+    (when-let [old (get @in-flight-sends key)]
+      (future-cancel old))
+    (swap! in-flight-sends assoc key
+           (future (client/run-with-retry (client/->Client host port client-data secret-key node-id)
+                                          retry-count retry-delay-ms)))))
 
 (defn- best-fit-flavor
   "获取最适合当前剪贴板内容的flavor，根据测试结果，选择了文件列表>图像>字符串，这样可以使MacOS和Windows上的表现一致。"
@@ -37,7 +40,16 @@
                   DataFlavor/imageFlavor
                   DataFlavor/stringFlavor])))
 
-;; 处理剪贴版上不同的内容，发送到目标服务器
+(defn- active-peers
+  "返回当前活跃同步目标列表。优先使用发现到的 peer，若无则回退到配置的 target-host。"
+  [conf]
+  (let [discovered (when-let [reg (app/current-discovery-registry)]
+                     (discovery/recent-peers reg (:node-id conf)))]
+    (if (seq discovered)
+      (map #(select-keys % [:host :port]) discovered)
+      [{:host (:target-host conf) :port (:target-port conf)}])))
+
+;; 处理剪贴版上不同的内容，发送到所有活跃目标
 (defmulti handle-flavor (fn [clip conf _ _] (best-fit-flavor clip conf)))
 
 (defn- record-send-history! [type size peer]
@@ -50,18 +62,26 @@
                       :size size
                       :peer peer})))
 
+(defn- send-to-all-peers! [client-data size type conf node-id secret-key]
+  "向所有活跃 peer 发送剪贴板内容。"
+  (let [peers (active-peers conf)
+        retry-count (:retry-count conf 3)
+        retry-delay-ms (:retry-delay-ms conf 1000)]
+    (doseq [peer peers]
+      (when (and (:host peer) (:port peer))
+        (record-send-history! type size (:host peer))
+        (send-to-peer (:host peer) (:port peer)
+                      client-data secret-key node-id
+                      retry-count retry-delay-ms)))))
+
 (defmethod handle-flavor DataFlavor/stringFlavor [clip conf node-id secret-key]
-  (let [data (.getData clip DataFlavor/stringFlavor)
-        peer (:target-host conf)]
-    (record-send-history! :text (count data) peer)
-    (send-client (client/->Client peer (:target-port conf) data secret-key node-id))))
+  (let [data (.getData clip DataFlavor/stringFlavor)]
+    (send-to-all-peers! data (count data) :text conf node-id secret-key)))
 
 (defmethod handle-flavor DataFlavor/imageFlavor [clip conf node-id secret-key]
   (let [data (.getData clip DataFlavor/imageFlavor)
-        peer (:target-host conf)
         size (count (util/image->bytes (util/buffered-image data)))]
-    (record-send-history! :image size peer)
-    (send-client (client/->Client peer (:target-port conf) data secret-key node-id))))
+    (send-to-all-peers! data size :image conf node-id secret-key)))
 
 (defmethod handle-flavor DataFlavor/javaFileListFlavor [clip conf node-id secret-key]
   (let [data (.getData clip DataFlavor/javaFileListFlavor)
@@ -71,9 +91,7 @@
     (if (seq oversized)
       (doseq [^File f oversized]
         (println "file-too-large:" (.getName f) "(" (.length f) "bytes >" max-size-kb "KB)"))
-      (let [peer (:target-host conf)]
-        (record-send-history! :file-list (count data) peer)
-        (send-client (client/->Client peer (:target-port conf) data secret-key node-id))))))
+      (send-to-all-peers! data (count data) :file-list conf node-id secret-key))))
 
 (def clip-data
   "临时存储每次复制后剪切版上的信息，如果非空，为`ClipboardData`类型的对象"
