@@ -1,12 +1,13 @@
 (ns lan-clip.discovery
-  "局域网设备发现：基于 UDP 广播的 beacon 机制。
-  每个节点周期性向 255.255.255.255 发送 beacon，其他节点监听并维护 peer 列表。"
+  "局域网设备发现与配对：基于 UDP 广播的 beacon 机制 + 定向配对消息。
+  每个节点周期性向 255.255.255.255 发送 beacon，其他节点监听并维护 peer 列表。
+  配对通过定向 UDP 消息完成：请求方发送 pair-request，接收方回复 pair-response。"
   (:require [clojure.edn :as edn])
   (:import (java.net DatagramSocket DatagramPacket InetAddress)
            (java.time Instant Duration)
            (java.util.concurrent.atomic AtomicBoolean)))
 
-(def ^:private discovery-port 9616)
+(def discovery-port 9616)
 (def ^:private beacon-interval-ms 3000)
 (def ^:private peer-ttl-seconds 30)
 (def ^:private beacon-max-bytes 1024)
@@ -61,8 +62,17 @@
                                 (broadcast-address) discovery-port)]
     (.send socket packet)))
 
-(defn- receive-beacon!
-  "从 socket 接收一个 beacon，返回 [sender-host beacon-map]；超时或解析失败返回 nil。"
+(defn- send-udp!
+  "向指定主机发送 UDP 消息。"
+  [^DatagramSocket socket host port msg-map]
+  (let [payload (pr-str msg-map)
+        bytes (.getBytes payload "UTF-8")
+        addr (InetAddress/getByName host)
+        packet (DatagramPacket. bytes (alength bytes) addr port)]
+    (.send socket packet)))
+
+(defn- receive-udp!
+  "从 socket 接收一个 UDP 消息，返回 [sender-host msg-map]；超时或解析失败返回 nil。"
   [^DatagramSocket socket]
   (let [buf (byte-array beacon-max-bytes)
         packet (DatagramPacket. buf (alength buf))]
@@ -75,10 +85,48 @@
       (catch Exception _
         nil))))
 
+(defn handle-incoming-msg
+  "处理收到的 UDP 消息：beacon 注册到 registry，pair-request 调用 on-pair-request 回调，
+  pair-response 调用 on-pair-response 回调。"
+  [registry sender-host msg on-pair-request on-pair-response]
+  (case (:msg-type msg)
+    :pair-request
+    (when on-pair-request
+      (on-pair-request sender-host msg))
+
+    :pair-response
+    (when on-pair-response
+      (on-pair-response sender-host msg))
+
+    ;; 默认当作 beacon（兼容旧格式不含 :msg-type 的情况）
+    (register-peer! registry sender-host msg)))
+
+(defn send-pair-request!
+  "向指定 peer 发送配对请求。"
+  [socket host port self-node-id device-name listen-port secret-key]
+  (send-udp! socket host port
+             {:msg-type :pair-request
+              :node-id self-node-id
+              :device-name device-name
+              :port listen-port
+              :secret-key secret-key}))
+
+(defn send-pair-response!
+  "向指定主机发送配对响应。"
+  [socket host port self-node-id device-name listen-port status]
+  (send-udp! socket host port
+             {:msg-type :pair-response
+              :node-id self-node-id
+              :device-name device-name
+              :port listen-port
+              :status status}))
+
 (defn start-discovery
   "启动设备发现服务。
+  - on-pair-request: 收到配对请求时的回调 (fn [sender-host msg]) -> nil
+  - on-pair-response: 收到配对响应时的回调 (fn [sender-host msg]) -> nil
   返回一个包含 :stop! 函数的 map，调用后可终止发送与接收线程。"
-  [node-id device-name port registry]
+  [node-id device-name port registry & {:keys [on-pair-request on-pair-response]}]
   (let [running (AtomicBoolean. true)
         sender-socket (doto (DatagramSocket.)
                         (.setBroadcast true))
@@ -94,15 +142,16 @@
                                   (Thread/sleep beacon-interval-ms))))
                         (.setDaemon true)
                         (.start))
-        ;; 接收线程：监听 beacon
+        ;; 接收线程：监听 beacon 与配对消息
         receiver-thread (doto (Thread.
                                 (fn []
                                   (while (.get running)
-                                    (when-let [[host beacon] (receive-beacon! receiver-socket)]
+                                    (when-let [[host msg] (receive-udp! receiver-socket)]
                                       (try
-                                        (register-peer! registry host beacon)
+                                        (handle-incoming-msg registry host msg
+                                                             on-pair-request on-pair-response)
                                         (catch Exception e
-                                          (println "discovery-register-error:" (.getMessage e))))))))
+                                          (println "discovery-handle-error:" (.getMessage e))))))))
                           (.setDaemon true)
                           (.start))]
     {:stop! (fn []
@@ -111,4 +160,5 @@
               (.close receiver-socket)
               (.join sender-thread 2000)
               (.join receiver-thread 2000))
-     :registry registry}))
+     :registry registry
+     :sender-socket sender-socket}))

@@ -326,7 +326,10 @@ h1 {
 }
 
 .peer-item {
+  display: flex;
+  gap: 0.4rem;
   margin-bottom: 0.4rem;
+  align-items: stretch;
 }
 
 .peer-item:last-child {
@@ -334,7 +337,8 @@ h1 {
 }
 
 .peer-select-btn {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -361,6 +365,14 @@ h1 {
   color: #888;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.8rem;
+}
+
+.pair-btn {
+  width: auto;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  margin-top: 0;
+  white-space: nowrap;
 }
 
 @media (prefers-color-scheme: dark) {
