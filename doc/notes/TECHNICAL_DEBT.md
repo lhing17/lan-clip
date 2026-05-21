@@ -14,12 +14,5 @@
 
 ## P2 — 技术债（不影响当前功能，长期维护成本）
 
-### 14. 测试 — 大量 `Thread/sleep` 做同步
-
-- **位置**：`acceptance_test.clj`、`server_test.clj`、`app_test.clj` 等
-- **问题**：网络/异步测试中普遍使用 `Thread/sleep`（300ms、500ms 不等）等待 side effect。这导致：
-  - 测试运行时间不稳定
-  - 在慢机器上可能 flaky
-  - 在快机器上浪费等待时间
-- **建议**：引入 `CountDownLatch`、promise 或 Netty 的 `EmbeddedChannel` 同步机制实现确定性测试。
+（当前无 P2 项）
 
