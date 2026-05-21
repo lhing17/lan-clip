@@ -1,0 +1,66 @@
+name: Build
+
+on:
+  push:
+    branches: [master, ai/integration]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos-latest, windows-latest]
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install Leiningen
+        uses: DeLaGuardo/setup-clojure@13.0
+        with:
+          lein: 2.11.2
+
+      - name: Build uberjar
+        run: lein uberjar
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Install frontend dependencies
+        run: cd ui && npm install
+
+      - name: Build Tauri
+        run: cd ui && npm run tauri build
+
+      - name: Upload macOS artifacts
+        if: matrix.platform == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-artifacts
+          path: |
+            ui/src-tauri/target/release/bundle/macos/*.app
+            ui/src-tauri/target/release/bundle/dmg/*.dmg
+
+      - name: Upload Windows artifacts
+        if: matrix.platform == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          path: |
+            ui/src-tauri/target/release/bundle/msi/*.msi
+            ui/src-tauri/target/release/bundle/nsis/*.exe
