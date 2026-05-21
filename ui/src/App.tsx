@@ -10,6 +10,7 @@ import {
   saveConfig,
   fetchRecentLogs,
   fetchHistory,
+  fetchPeers,
   enableAutostart,
   disableAutostart,
   getAutostartStatus,
@@ -17,6 +18,7 @@ import {
   type SidecarConfig,
   type LogEntry,
   type HistoryEntry,
+  type Peer,
 } from "./api";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { notifyError } from "./notifications";
@@ -241,6 +243,8 @@ function ConfigPage() {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [autostart, setAutostart] = useState<boolean | null>(null);
+  const [peers, setPeers] = useState<Peer[]>([]);
+  const [peersLoading, setPeersLoading] = useState(false);
 
   useEffect(() => {
     fetchSidecarConfig()
@@ -250,6 +254,24 @@ function ConfigPage() {
       .then((enabled) => setAutostart(enabled))
       .catch(() => setAutostart(false));
   }, []);
+
+  const refreshPeers = useCallback(async () => {
+    setPeersLoading(true);
+    try {
+      const list = await fetchPeers();
+      setPeers(list);
+    } catch (e) {
+      setPeers([]);
+    } finally {
+      setPeersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshPeers();
+    const id = setInterval(refreshPeers, 5000);
+    return () => clearInterval(id);
+  }, [refreshPeers]);
 
   async function toggleAutostart() {
     try {
@@ -296,6 +318,14 @@ function ConfigPage() {
     setConfig((prev) => ({ ...prev, [key]: value }));
   }
 
+  function selectPeer(peer: Peer) {
+    setConfig((prev) => ({
+      ...prev,
+      targetHost: peer.host ?? prev.targetHost,
+      targetPort: peer.port ?? prev.targetPort,
+    }));
+  }
+
   return (
     <section className="card">
       <h2>应用配置</h2>
@@ -337,6 +367,42 @@ function ConfigPage() {
             placeholder="9002"
           />
         </label>
+        <div className="peer-discovery">
+          <div className="peer-header">
+            <span>已发现设备</span>
+            <button
+              type="button"
+              className="toggle-btn small"
+              onClick={refreshPeers}
+              disabled={peersLoading}
+            >
+              {peersLoading ? "刷新中..." : "刷新"}
+            </button>
+          </div>
+          {peers.length === 0 ? (
+            <p className="empty-peers">未发现局域网设备</p>
+          ) : (
+            <ul className="peer-list">
+              {peers.map((p) => (
+                <li key={p.nodeId} className="peer-item">
+                  <button
+                    type="button"
+                    className="peer-select-btn"
+                    onClick={() => selectPeer(p)}
+                    title="点击设为同步目标"
+                  >
+                    <span className="peer-name">
+                      {p.deviceName || "未命名设备"}
+                    </span>
+                    <span className="peer-meta">
+                      {p.host}:{p.port}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         <label>
           <span>共享密钥</span>
           <input

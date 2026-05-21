@@ -1,6 +1,7 @@
 (ns lan-clip.app
   "lan-clip 应用生命周期管理：提供统一的 start!、stop!、status 入口。"
   (:require [lan-clip.config :as config]
+            [lan-clip.discovery :as discovery]
             [lan-clip.history :as history]
             [lan-clip.socket.server :as server]
             [lan-clip.watcher :as watcher]))
@@ -13,6 +14,9 @@
 
 (def ^:private history-store
   (history/create-store 100))
+
+(def ^:private discovery-registry
+  (discovery/create-registry))
 
 (defn last-remote-fingerprint
   "返回最近一次远端写入剪贴板的内容指纹（ClipboardData），若尚未收到则为 nil。"
@@ -29,6 +33,11 @@
   "返回当前历史记录存储 atom；若应用未运行也返回存储（全局单例）。"
   []
   history-store)
+
+(defn current-discovery-registry
+  "返回当前设备发现注册表 atom；若应用未运行也返回注册表（全局单例）。"
+  []
+  discovery-registry)
 
 (defn status
   "返回当前应用状态。"
@@ -63,12 +72,17 @@
                                      #(reset! last-remote-fp %)
                                      (:received-files-dir validated)
                                      history-store)]
-     (reset! app-state {:running? true
-                        :config   validated
-                        :watcher  w-ctrl
-                        :server   s-ctrl
-                        :history  history-store})
-     (status))))
+     (let [d-ctrl (discovery/start-discovery (:node-id validated)
+                                             (:device-name validated)
+                                             (:port validated)
+                                             discovery-registry)]
+       (reset! app-state {:running? true
+                          :config   validated
+                          :watcher  w-ctrl
+                          :server   s-ctrl
+                          :history  history-store
+                          :discovery d-ctrl})
+       (status)))))
 
 (defn stop!
   "停止 lan-clip 应用。非阻塞；watcher 将在下一次循环检查后退出。
@@ -78,7 +92,9 @@
     (when-let [w (:watcher st)]
       (watcher/stop-watcher w))
     (when-let [s (:server st)]
-      ((:stop! s))))
+      ((:stop! s)))
+    (when-let [d (:discovery st)]
+      ((:stop! d))))
   (history/clear! history-store)
   (reset! app-state nil)
   (reset! last-remote-fp nil)

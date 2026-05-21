@@ -6,6 +6,7 @@
             [lan-clip.app :as app]
             [lan-clip.config :as config]
             [lan-clip.core :as core]
+            [lan-clip.discovery :as discovery]
             [lan-clip.history :as history]
             [lan-clip.log :as log]))
 
@@ -149,6 +150,14 @@
       {:status 200
        :headers {"Content-Type" "application/edn"}
        :body (pr-str (history/recent store limit))})
+
+    [:get "/peers"]
+    (let [registry (app/current-discovery-registry)
+          cfg (or (app/current-config) (config/load-config nil))
+          self-id (:node-id cfg)]
+      {:status 200
+       :headers {"Content-Type" "application/edn"}
+       :body (pr-str (discovery/recent-peers registry self-id))})
 
     (let [method (:request-method req)
           uri (:uri req)]
