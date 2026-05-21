@@ -3,6 +3,7 @@
   (:require [lan-clip.app :as app]
             [lan-clip.config :as config]
             [lan-clip.fingerprint :as fingerprint]
+            [lan-clip.history :as history]
             [lan-clip.socket.client :as client]
             [lan-clip.socket.server :as server]
             [lan-clip.util :as util])
@@ -39,15 +40,28 @@
 ;; 处理剪贴版上不同的内容，发送到目标服务器
 (defmulti handle-flavor (fn [clip conf _ _] (best-fit-flavor clip conf)))
 
+(defn- record-send-history! [type size peer]
+  "记录发送历史到全局存储。"
+  (when-let [store (app/current-history-store)]
+    (history/record! store
+                     {:timestamp (java.time.Instant/now)
+                      :direction :send
+                      :type type
+                      :size size
+                      :peer peer})))
+
 (defmethod handle-flavor DataFlavor/stringFlavor [clip conf node-id secret-key]
   (let [data (.getData clip DataFlavor/stringFlavor)
-        clnt (client/->Client (:target-host conf) (:target-port conf) data secret-key node-id)]
-    (send-client clnt)))
+        peer (:target-host conf)]
+    (record-send-history! :text (count data) peer)
+    (send-client (client/->Client peer (:target-port conf) data secret-key node-id))))
 
 (defmethod handle-flavor DataFlavor/imageFlavor [clip conf node-id secret-key]
   (let [data (.getData clip DataFlavor/imageFlavor)
-        clnt (client/->Client (:target-host conf) (:target-port conf) data secret-key node-id)]
-    (send-client clnt)))
+        peer (:target-host conf)
+        size (count (util/image->bytes (util/buffered-image data)))]
+    (record-send-history! :image size peer)
+    (send-client (client/->Client peer (:target-port conf) data secret-key node-id))))
 
 (defmethod handle-flavor DataFlavor/javaFileListFlavor [clip conf node-id secret-key]
   (let [data (.getData clip DataFlavor/javaFileListFlavor)
@@ -57,8 +71,9 @@
     (if (seq oversized)
       (doseq [^File f oversized]
         (println "file-too-large:" (.getName f) "(" (.length f) "bytes >" max-size-kb "KB)"))
-      (let [clnt (client/->Client (:target-host conf) (:target-port conf) data secret-key node-id)]
-        (send-client clnt)))))
+      (let [peer (:target-host conf)]
+        (record-send-history! :file-list (count data) peer)
+        (send-client (client/->Client peer (:target-port conf) data secret-key node-id))))))
 
 (def clip-data
   "临时存储每次复制后剪切版上的信息，如果非空，为`ClipboardData`类型的对象"

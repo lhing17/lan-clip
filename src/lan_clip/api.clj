@@ -6,6 +6,7 @@
             [lan-clip.app :as app]
             [lan-clip.config :as config]
             [lan-clip.core :as core]
+            [lan-clip.history :as history]
             [lan-clip.log :as log]))
 
 (def ^:private config-path-atom
@@ -138,6 +139,16 @@
     {:status 200
      :headers {"Content-Type" "application/edn"}
      :body (pr-str (log/recent-logs))}
+
+    [:get "/history/recent"]
+    (let [limit-str (get-in req [:query-params "limit"])
+          limit (if limit-str
+                  (try (Integer/parseInt limit-str) (catch Exception _ 20))
+                  20)
+          store (app/current-history-store)]
+      {:status 200
+       :headers {"Content-Type" "application/edn"}
+       :body (pr-str (history/recent store limit))})
 
     (let [method (:request-method req)
           uri (:uri req)]

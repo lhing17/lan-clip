@@ -44,6 +44,14 @@ export interface LogEntry {
   msg?: string;
 }
 
+export interface HistoryEntry {
+  timestamp?: string;
+  direction?: string;
+  type?: string;
+  size?: number;
+  peer?: string;
+}
+
 function kebabToCamel(s: string): string {
   const base = s.replace(/\?$/, "");
   return base.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
@@ -181,5 +189,20 @@ export async function fetchRecentLogs(): Promise<LogEntry[]> {
     time: String((m as Record<string, unknown>).time ?? ""),
     level: String((m as Record<string, unknown>).level ?? ""),
     msg: String((m as Record<string, unknown>).msg ?? ""),
+  }));
+}
+
+export async function fetchHistory(limit = 20): Promise<HistoryEntry[]> {
+  const res = await fetch(sidecarUrl(`/history/recent?limit=${limit}`));
+  if (!res.ok) throw new Error(`Status ${res.status}`);
+  const text = await res.text();
+  const parsed = parseEdnResponse(text);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.map((m) => ({
+    timestamp: String((m as Record<string, unknown>).timestamp ?? ""),
+    direction: String((m as Record<string, unknown>).direction ?? ""),
+    type: String((m as Record<string, unknown>).type ?? ""),
+    size: Number((m as Record<string, unknown>).size ?? 0),
+    peer: String((m as Record<string, unknown>).peer ?? ""),
   }));
 }
