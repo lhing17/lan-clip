@@ -27,10 +27,14 @@
                     :protocol-version protocol-version})
       (:running? st) (assoc :node-id (get-in st [:config :node-id])))))
 
+(def ^:private sensitive-keys
+  "需要过滤的敏感配置字段集合。"
+  #{:secret-key :log-file :received-files-dir})
+
 (defn- safe-config
   "返回不含敏感字段的配置 map。"
   [cfg]
-  (dissoc cfg :secret-key))
+  (apply dissoc cfg sensitive-keys))
 
 (def ^:private cors-headers
   {"Access-Control-Allow-Origin" "*"

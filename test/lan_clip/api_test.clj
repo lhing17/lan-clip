@@ -81,7 +81,7 @@
             (Thread/sleep 200)))))))
 
 (deftest api-config-returns-default-config-when-not-running
-  (testing "GET /config 当应用未运行时应返回默认配置（不含 secret-key）"
+  (testing "GET /config 当应用未运行时应返回默认配置（不含敏感字段）"
     (app/stop!)
     (let [port (random-port)
           server (api/start-api-server port)]
@@ -94,12 +94,23 @@
           (is (map? parsed))
           (is (contains? parsed :port))
           (is (= 9002 (:port parsed)))
-          (is (contains? parsed :log-file) "应包含日志文件路径")
-          (is (string? (:log-file parsed)))
-          (is (not (contains? parsed :secret-key)) "不应包含 secret-key"))
+          (is (not (contains? parsed :secret-key)) "不应包含 secret-key")
+          (is (not (contains? parsed :log-file)) "不应包含 log-file")
+          (is (not (contains? parsed :received-files-dir)) "不应包含 received-files-dir"))
         (finally
           (api/stop-api-server server)
           (Thread/sleep 200))))))
+
+(deftest api-safe-config-filters-sensitive-keys
+  (testing "safe-config 应过滤所有敏感字段"
+    (let [cfg {:port 9002 :secret-key "s3cr3t" :log-file "/tmp/lan-clip.log"
+               :received-files-dir "/tmp/received" :target-host "localhost"}
+          result (@#'api/safe-config cfg)]
+      (is (not (contains? result :secret-key)))
+      (is (not (contains? result :log-file)))
+      (is (not (contains? result :received-files-dir)))
+      (is (= 9002 (:port result)))
+      (is (= "localhost" (:target-host result))))))
 
 (deftest api-start-sync-starts-app
   (testing "POST /sync/start 应启动同步并返回运行状态"

@@ -35,13 +35,7 @@
   - 拒绝未知 key，防止配置污染。
   - 限制请求体大小。
 
-### 5. `api.clj` — `safe-config` 过滤不充分
-
-- **位置**：`src/lan_clip/api.clj:30-33`
-- **问题**：`safe-config` 只 `dissoc :secret-key`，但 `:log-file`、`:received-files-dir` 等本地路径也属于半敏感信息。
-- **建议**：将路径类字段也加入过滤列表，或定义明确的 `sensitive-keys` 集合。
-
-### 6. `log.clj` — 裸 `println` 导致多线程日志交错
+### 5. `log.clj` — 裸 `println` 导致多线程日志交错
 
 - **位置**：`src/lan_clip/log.clj:42`
 - **问题**：`log!` 使用裸 `println` 输出，多个线程同时调用时，日志行内容可能交错写入 stdout。
