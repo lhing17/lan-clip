@@ -19,10 +19,14 @@
 (def ^:private in-flight-send (atom nil))
 
 (defn- send-client [client]
-  "启动新的发送 future，并取消上一个仍在飞行中的 future（latest-wins 策略）。"
+  "启动新的发送 future，并取消上一个仍在飞行中的 future（latest-wins 策略）。
+  使用配置中的 :retry-count 和 :retry-delay-ms 控制重试行为。"
   (when-let [old @in-flight-send]
     (future-cancel old))
-  (reset! in-flight-send (future (client/run client))))
+  (let [conf (or (app/current-config) config/default-config)
+        retry-count (:retry-count conf 3)
+        retry-delay-ms (:retry-delay-ms conf 1000)]
+    (reset! in-flight-send (future (client/run-with-retry client retry-count retry-delay-ms)))))
 
 (defn- best-fit-flavor
   "获取最适合当前剪贴板内容的flavor，根据测试结果，选择了文件列表>图像>字符串，这样可以使MacOS和Windows上的表现一致。"
