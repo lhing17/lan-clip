@@ -9,12 +9,14 @@ import {
   stopSync,
   saveConfig,
   fetchRecentLogs,
+  fetchHistory,
   enableAutostart,
   disableAutostart,
   getAutostartStatus,
   checkForUpdate,
   type SidecarConfig,
   type LogEntry,
+  type HistoryEntry,
 } from "./api";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { notifyError } from "./notifications";
@@ -28,7 +30,7 @@ interface AppState {
   error: string | null;
 }
 
-type Tab = "status" | "config" | "logs" | "about";
+type Tab = "status" | "config" | "history" | "logs" | "about";
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>("status");
@@ -156,6 +158,12 @@ function App() {
           配置
         </button>
         <button
+          className={activeTab === "history" ? "tab-active" : "tab"}
+          onClick={() => setActiveTab("history")}
+        >
+          历史
+        </button>
+        <button
           className={activeTab === "logs" ? "tab-active" : "tab"}
           onClick={() => setActiveTab("logs")}
         >
@@ -221,6 +229,7 @@ function App() {
         </>
       )}
       {activeTab === "config" && <ConfigPage />}
+      {activeTab === "history" && <HistoryPage />}
       {activeTab === "logs" && <LogsPage />}
       {activeTab === "about" && <AboutPage />}
     </main>
@@ -377,6 +386,96 @@ function ConfigPage() {
           {saving ? "保存中..." : "保存配置"}
         </button>
       </form>
+    </section>
+  );
+}
+
+function HistoryPage() {
+  const [entries, setEntries] = useState<HistoryEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const refreshHistory = useCallback(async () => {
+    setLoading(true);
+    try {
+      const items = await fetchHistory(50);
+      setEntries(items);
+    } catch (e) {
+      setEntries([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshHistory();
+  }, [refreshHistory]);
+
+  function formatDirection(dir: string) {
+    return dir === "send" ? "发送" : dir === "receive" ? "接收" : dir;
+  }
+
+  function formatType(type: string) {
+    return (
+      { text: "文本", image: "图片", "file-list": "文件" }[type] ?? type
+    );
+  }
+
+  function formatSize(type: string, size: number) {
+    if (type === "text") return `${size} 字符`;
+    if (type === "image") return `${(size / 1024).toFixed(1)} KB`;
+    if (type === "file-list") return `${size} 个文件`;
+    return String(size);
+  }
+
+  return (
+    <section className="card">
+      <h2>传输历史</h2>
+      <div className="logs-toolbar">
+        <button className="toggle-btn" onClick={refreshHistory} disabled={loading}>
+          {loading ? "刷新中..." : "刷新"}
+        </button>
+      </div>
+
+      {entries.length === 0 ? (
+        <p className="empty-logs">暂无传输记录</p>
+      ) : (
+        <ul className="log-list">
+          {entries.map((h, i) => (
+            <li key={`hist-${i}`} className="log-item">
+              <span className="log-time">
+                {h.timestamp
+                  ? new Date(h.timestamp).toLocaleTimeString("zh-CN")
+                  : "—"}
+              </span>
+              <span
+                className="log-level"
+                style={{
+                  background:
+                    h.direction === "send"
+                      ? "#c8e6c9"
+                      : h.direction === "receive"
+                        ? "#bbdefb"
+                        : "#e3e3e3",
+                  color:
+                    h.direction === "send"
+                      ? "#2e7d32"
+                      : h.direction === "receive"
+                        ? "#1565c0"
+                        : "#333",
+                }}
+              >
+                {formatDirection(h.direction ?? "")}
+              </span>
+              <span className="log-msg">
+                {formatType(h.type ?? "")}
+                {" · "}
+                {formatSize(h.type ?? "", h.size ?? 0)}
+                {h.peer ? ` · ${h.peer}` : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
