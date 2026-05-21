@@ -152,6 +152,20 @@ export async function saveConfig(
   return parseEdnResponse(text) as SaveConfigResult;
 }
 
+import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
+
+export async function enableAutostart(): Promise<void> {
+  await enable();
+}
+
+export async function disableAutostart(): Promise<void> {
+  await disable();
+}
+
+export async function getAutostartStatus(): Promise<boolean> {
+  return isEnabled();
+}
+
 export async function fetchRecentLogs(): Promise<LogEntry[]> {
   const res = await fetch(sidecarUrl("/logs/recent"));
   if (!res.ok) throw new Error(`Status ${res.status}`);

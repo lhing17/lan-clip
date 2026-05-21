@@ -195,6 +195,10 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .manage(Mutex::new(SidecarState::default()))
         .invoke_handler(tauri::generate_handler![sidecar_start, sidecar_stop, sidecar_status, sidecar_port])
         .setup(|app| {

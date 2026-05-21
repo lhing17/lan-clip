@@ -183,6 +183,19 @@ h1 {
   border-color: #396cd8;
 }
 
+.checkbox-label {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem !important;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 1.2rem;
+  height: 1.2rem;
+  cursor: pointer;
+}
+
 .logs-toolbar {
   display: flex;
   gap: 0.5rem;

@@ -9,6 +9,9 @@ import {
   stopSync,
   saveConfig,
   fetchRecentLogs,
+  enableAutostart,
+  disableAutostart,
+  getAutostartStatus,
   type SidecarConfig,
   type LogEntry,
 } from "./api";
@@ -227,12 +230,30 @@ function ConfigPage() {
   const [config, setConfig] = useState<SidecarConfig>({});
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [autostart, setAutostart] = useState<boolean | null>(null);
 
   useEffect(() => {
     fetchSidecarConfig()
       .then((cfg) => setConfig(cfg))
       .catch(() => setConfig({}));
+    getAutostartStatus()
+      .then((enabled) => setAutostart(enabled))
+      .catch(() => setAutostart(false));
   }, []);
+
+  async function toggleAutostart() {
+    try {
+      if (autostart) {
+        await disableAutostart();
+        setAutostart(false);
+      } else {
+        await enableAutostart();
+        setAutostart(true);
+      }
+    } catch (e) {
+      setSaveMsg("自启动设置失败：" + (e instanceof Error ? e.message : String(e)));
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -341,6 +362,15 @@ function ConfigPage() {
             onChange={(e) => update("receivedFilesDir", e.target.value)}
             placeholder="~/.lan-clip/received-files"
           />
+        </label>
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={autostart ?? false}
+            onChange={toggleAutostart}
+            disabled={autostart === null}
+          />
+          <span>开机自启动</span>
         </label>
         <button type="submit" className="toggle-btn" disabled={saving}>
           {saving ? "保存中..." : "保存配置"}
