@@ -35,12 +35,6 @@
   - 拒绝未知 key，防止配置污染。
   - 限制请求体大小。
 
-### 5. `log.clj` — 裸 `println` 导致多线程日志交错
-
-- **位置**：`src/lan_clip/log.clj:42`
-- **问题**：`log!` 使用裸 `println` 输出，多个线程同时调用时，日志行内容可能交错写入 stdout。
-- **建议**：使用 `java.io.PrintWriter` 或 `clojure.tools.logging`，或至少对 `println` 调用加锁。
-
 ### 7. `api.ts` — 脆弱的 EDN 字符串解析
 
 - **位置**：`ui/src/api.ts:133-188`
