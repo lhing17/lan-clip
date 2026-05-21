@@ -1,34 +1,84 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 
+use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{Emitter, Manager};
 
 /// Sidecar 进程句柄，用于管理 Clojure 后端生命周期。
-/// 当前为占位实现，后续将接入真实的进程启动/停止逻辑。
+/// 通过 std::process::Command 启动 java -jar 运行 Clojure uberjar。
 pub struct SidecarState {
-    running: bool,
+    child: Option<Child>,
 }
 
 impl Default for SidecarState {
     fn default() -> Self {
-        Self { running: false }
+        Self { child: None }
     }
 }
 
 impl SidecarState {
-    pub fn start(&mut self) {
-        self.running = true;
+    pub fn start(&mut self) -> Result<(), String> {
+        if self.is_running() {
+            return Ok(());
+        }
+        let jar_path = find_jar_path()?;
+        let child = Command::new("java")
+            .arg("-jar")
+            .arg(&jar_path)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| format!("启动 sidecar 失败: {}", e))?;
+        self.child = Some(child);
+        Ok(())
     }
 
-    pub fn stop(&mut self) {
-        self.running = false;
+    pub fn stop(&mut self) -> Result<(), String> {
+        if let Some(mut child) = self.child.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        Ok(())
     }
 
-    pub fn is_running(&self) -> bool {
-        self.running
+    pub fn is_running(&mut self) -> bool {
+        match &mut self.child {
+            Some(child) => match child.try_wait() {
+                Ok(None) => true,
+                _ => {
+                    self.child = None;
+                    false
+                }
+            },
+            None => false,
+        }
     }
+}
+
+/// 查找 lan-clip uberjar 路径。
+/// 开发模式：从 CARGO_MANIFEST_DIR（ui/src-tauri）推导至项目根目录 target/。
+/// 生产模式：在应用可执行文件同级目录查找。
+fn find_jar_path() -> Result<std::path::PathBuf, String> {
+    if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
+        let path = std::path::PathBuf::from(manifest_dir)
+            .join("../../target/lan-clip-1.0-standalone.jar");
+        if path.exists() {
+            return Ok(path);
+        }
+    }
+
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            let path = exe_dir.join("lan-clip-1.0-standalone.jar");
+            if path.exists() {
+                return Ok(path);
+            }
+        }
+    }
+
+    Err("未找到 lan-clip uberjar（lan-clip-1.0-standalone.jar）。请先运行 `lein uberjar` 打包。".to_string())
 }
 
 /// 返回 sidecar HTTP API 端口（当前固定为 9615）。
@@ -37,26 +87,26 @@ fn sidecar_port() -> Result<u16, String> {
     Ok(9615)
 }
 
-/// 启动 Clojure sidecar（占位实现）。
+/// 启动 Clojure sidecar。
 #[tauri::command]
 fn sidecar_start(state: tauri::State<'_, Mutex<SidecarState>>) -> Result<bool, String> {
     let mut s = state.lock().map_err(|e| e.to_string())?;
-    s.start();
+    s.start()?;
     Ok(true)
 }
 
-/// 停止 Clojure sidecar（占位实现）。
+/// 停止 Clojure sidecar。
 #[tauri::command]
 fn sidecar_stop(state: tauri::State<'_, Mutex<SidecarState>>) -> Result<bool, String> {
     let mut s = state.lock().map_err(|e| e.to_string())?;
-    s.stop();
+    s.stop()?;
     Ok(true)
 }
 
-/// 查询 sidecar 运行状态（占位实现）。
+/// 查询 sidecar 运行状态。
 #[tauri::command]
 fn sidecar_status(state: tauri::State<'_, Mutex<SidecarState>>) -> Result<bool, String> {
-    let s = state.lock().map_err(|e| e.to_string())?;
+    let mut s = state.lock().map_err(|e| e.to_string())?;
     Ok(s.is_running())
 }
 
@@ -88,23 +138,20 @@ mod tests {
 
     #[test]
     fn sidecar_state_defaults_to_stopped() {
-        let state = SidecarState::default();
+        let mut state = SidecarState::default();
         assert!(!state.is_running());
     }
 
     #[test]
-    fn sidecar_start_sets_running_to_true() {
+    fn sidecar_start_and_stop() {
         let mut state = SidecarState::default();
-        state.start();
-        assert!(state.is_running());
-    }
+        // 未找到 uberjar 时应返回错误
+        std::env::remove_var("CARGO_MANIFEST_DIR");
+        let result = state.start();
+        assert!(result.is_err());
 
-    #[test]
-    fn sidecar_stop_sets_running_to_false() {
-        let mut state = SidecarState::default();
-        state.start();
-        state.stop();
-        assert!(!state.is_running());
+        // stop 不应 panic
+        assert!(state.stop().is_ok());
     }
 
     #[test]
@@ -123,6 +170,14 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let result = open_directory(temp_dir.to_str().unwrap());
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn find_jar_path_falls_back_to_exe_dir() {
+        std::env::remove_var("CARGO_MANIFEST_DIR");
+        let result = find_jar_path();
+        // 当前目录下无 jar，应返回错误
+        assert!(result.is_err());
     }
 }
 
@@ -186,11 +241,8 @@ pub fn run() {
     app.run(|app_handle, event| {
         if let tauri::RunEvent::Exit = event {
             // 应用退出时停止 sidecar
-            if let Ok(state) = app_handle.state::<Mutex<SidecarState>>().lock() {
-                if state.is_running() {
-                    drop(state);
-                    let _ = app_handle.state::<Mutex<SidecarState>>().lock().map(|mut s| s.stop());
-                }
+            if let Ok(mut state) = app_handle.state::<Mutex<SidecarState>>().lock() {
+                let _ = state.stop();
             }
         }
     });
