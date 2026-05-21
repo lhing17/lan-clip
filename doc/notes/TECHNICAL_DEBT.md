@@ -47,15 +47,7 @@
 - **问题**：`log!` 使用裸 `println` 输出，多个线程同时调用时，日志行内容可能交错写入 stdout。
 - **建议**：使用 `java.io.PrintWriter` 或 `clojure.tools.logging`，或至少对 `println` 调用加锁。
 
-### 7. `fingerprint.clj` / `core.clj` — 重复的变化检测逻辑
-
-- **位置**：
-  - `src/lan_clip/fingerprint.clj:29-35`
-  - `src/lan_clip/core.clj:67-72`
-- **问题**：`fingerprint/changed?` 与 `core/clip-data-changed?` 逻辑完全重复（比较 flavor、length、contents）。
-- **建议**：删除 `core/clip-data-changed?`，统一调用 `fingerprint/changed?`。
-
-### 8. `api.ts` — 脆弱的 EDN 字符串解析
+### 7. `api.ts` — 脆弱的 EDN 字符串解析
 
 - **位置**：`ui/src/api.ts:133-188`
 - **问题**：`parseEdnLike` 和 `configToEdn` 是字符串级的简易解析器，无法正确处理：

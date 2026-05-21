@@ -2,6 +2,7 @@
   (:gen-class)
   (:require [lan-clip.app :as app]
             [lan-clip.config :as config]
+            [lan-clip.fingerprint :as fingerprint]
             [lan-clip.socket.client :as client]
             [lan-clip.socket.server :as server]
             [lan-clip.util :as util])
@@ -64,20 +65,12 @@
       DataFlavor/javaFileListFlavor
       (->ClipboardData flavor (count data) (util/md5 data)))))
 
-(defn clip-data-changed?
-  "判断剪贴板上的内容是否发生变化，包括类型、长度和内容（md5）"
-  [new-clip-data]
-  (or (not= (:flavor @clip-data) (:flavor new-clip-data))
-      (not= (:length @clip-data) (:length new-clip-data))
-      (not= (:contents @clip-data) (:contents new-clip-data))))
-
 (comment
   (defonce clip (.getSystemClipboard (Toolkit/getDefaultToolkit)))
   (def conf (config/load-config "config.edn"))
   (best-fit-flavor clip conf)
   (get-clip-data clip conf)
   @clip-data
-  (clip-data-changed? (get-clip-data clip conf))
   (reset! clip-data (get-clip-data clip conf))
   (handle-flavor clip conf node-id "lan-clip")
   (handle-flavor clip {:port 9002 :target-host "localhost" :target-port 9002} node-id "lan-clip")
@@ -89,7 +82,7 @@
   若当前内容与 last-remote-fp 匹配，则判定为远端回环，抑制发送并输出 loop-suppressed。"
   (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))]
     (let [new-clip-data (get-clip-data clip conf)]
-      (when (clip-data-changed? new-clip-data)
+      (when (fingerprint/changed? @clip-data new-clip-data)
         (if (and @last-remote-fp
                  (= (:flavor new-clip-data) (:flavor @last-remote-fp))
                  (= (:length new-clip-data) (:length @last-remote-fp))
