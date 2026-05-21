@@ -32,7 +32,7 @@ jobs:
 
       - name: Build uberjar
         shell: bash
-        run: lein uberjar
+        run: java -jar "$LEIN_JAR" uberjar
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
