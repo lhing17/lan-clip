@@ -367,3 +367,68 @@
         (finally
           (api/stop-api-server server)
           (Thread/sleep 200))))))
+
+(deftest api-put-config-rejects-unknown-keys
+  (testing "PUT /config 应拒绝未知配置键"
+    (let [temp-file (doto (java.io.File/createTempFile "config" ".edn") (.deleteOnExit))
+          _ (spit temp-file (pr-str {:port 9002 :target-host "localhost"}))
+          port (random-port)
+          _ (api/set-config-path! (.getAbsolutePath temp-file))
+          server (api/start-api-server port)]
+      (try
+        (Thread/sleep 200)
+        (let [{:keys [status body]} @(http/put (str "http://localhost:" port "/config")
+                                               {:body (pr-str {:unknown-key "value"})
+                                                :headers {"Content-Type" "application/edn"}})
+              body-str (if (string? body) body (slurp body))
+              parsed (clojure.edn/read-string body-str)]
+          (is (= 400 status) "未知 key 应返回 400")
+          (is (= :unknown-keys (:error parsed)) "错误类型应为 unknown-keys")
+          (let [saved (clojure.edn/read-string (slurp temp-file))]
+            (is (not (contains? saved :unknown-key)) "未知 key 不应被写入配置")))
+        (finally
+          (api/stop-api-server server)
+          (Thread/sleep 200))))))
+
+(deftest api-put-config-rejects-invalid-port
+  (testing "PUT /config 应拒绝非法端口值"
+    (let [temp-file (doto (java.io.File/createTempFile "config" ".edn") (.deleteOnExit))
+          _ (spit temp-file (pr-str {:port 9002 :target-host "localhost"}))
+          port (random-port)
+          _ (api/set-config-path! (.getAbsolutePath temp-file))
+          server (api/start-api-server port)]
+      (try
+        (Thread/sleep 200)
+        (let [{:keys [status body]} @(http/put (str "http://localhost:" port "/config")
+                                               {:body (pr-str {:port "not-a-number"})
+                                                :headers {"Content-Type" "application/edn"}})
+              body-str (if (string? body) body (slurp body))
+              parsed (clojure.edn/read-string body-str)]
+          (is (= 400 status) "非法端口应返回 400")
+          (is (= :invalid-port (:error parsed)) "错误类型应为 invalid-port")
+          (let [saved (clojure.edn/read-string (slurp temp-file))]
+            (is (= 9002 (:port saved)) "原有端口不应被覆盖")))
+        (finally
+          (api/stop-api-server server)
+          (Thread/sleep 200))))))
+
+(deftest api-put-config-rejects-body-too-large
+  (testing "PUT /config 应拒绝过大的请求体"
+    (let [temp-file (doto (java.io.File/createTempFile "config" ".edn") (.deleteOnExit))
+          _ (spit temp-file (pr-str {:port 9002 :target-host "localhost"}))
+          port (random-port)
+          _ (api/set-config-path! (.getAbsolutePath temp-file))
+          server (api/start-api-server port)]
+      (try
+        (Thread/sleep 200)
+        (let [huge-body (pr-str {:device-name (apply str (repeat 70000 "x"))})
+              {:keys [status body]} @(http/put (str "http://localhost:" port "/config")
+                                               {:body huge-body
+                                                :headers {"Content-Type" "application/edn"}})
+              body-str (if (string? body) body (slurp body))
+              parsed (clojure.edn/read-string body-str)]
+          (is (= 413 status) "过大请求体应返回 413")
+          (is (= :body-too-large (:error parsed)) "错误类型应为 body-too-large"))
+        (finally
+          (api/stop-api-server server)
+          (Thread/sleep 200))))))

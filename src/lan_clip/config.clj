@@ -77,7 +77,8 @@
       cfg
       (assoc cfg :node-id (load-or-create-node-id)))))
 
-(defn- valid-port?
+(defn valid-port?
+  "校验端口是否为 1-65535 范围内的整数。"
   [p]
   (and (integer? p) (<= 1 p 65535)))
 
