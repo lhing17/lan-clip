@@ -113,9 +113,6 @@
   Image
   (md5 [this] (md5 (buffered-image this)))
 
-  File
-  (md5 [this] (md5 (jio/input-stream this)))
-
   Seqable
   (md5 [this] (md5 (str (mapv md5 (seq this)))))
 
@@ -191,6 +188,9 @@
       (loop [entry (.getNextEntry zis)]
         (when entry
           (let [entry-name (.getName entry)
+                _ (when (.contains entry-name "..")
+                    (throw (ex-info "Zip entry contains path traversal"
+                                    {:cause :path-traversal :entry entry-name})))
                 f (unique-file (File. dest-dir entry-name))]
             (.mkdirs (.getParentFile f))
             (with-open [fos (FileOutputStream. f)]

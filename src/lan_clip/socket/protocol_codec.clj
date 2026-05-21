@@ -59,6 +59,9 @@
       (when (>= (.readableBytes in) 4)
         (.markReaderIndex in)
         (let [len (.readInt in)]
+          (when (<= len 0)
+            (.resetReaderIndex in)
+            (throw (ex-info "Invalid frame length" {:cause :bad-frame-length :size len})))
           (when (and max-frame-size (> len max-frame-size))
             (.resetReaderIndex in)
             (throw (ex-info "Frame too large" {:cause :frame-too-large :size len :max max-frame-size})))

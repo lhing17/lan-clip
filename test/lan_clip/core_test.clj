@@ -24,7 +24,7 @@
         (let [fp (get-clip-data clip nil)]
           (reset! last-remote-fp fp)
           (with-redefs [handle-flavor (fn [& _] (reset! sent true))]
-            (#'lan-clip.core/listen-clipboard node-id secret-key last-remote-fp)
+            (#'lan-clip.core/listen-clipboard node-id secret-key last-remote-fp nil)
             (is (false? @sent) "不应发送")
             (is (= (:contents fp) (:contents @clip-data)) "clip-data 应更新为远端指纹")))))))
 
@@ -40,7 +40,7 @@
         (.setContents clip (StringSelection. text) nil)
         (reset! last-remote-fp (->ClipboardData DataFlavor/stringFlavor 999 "completely-different-md5-hash-here"))
         (with-redefs [handle-flavor (fn [& _] (reset! sent true))]
-          (#'lan-clip.core/listen-clipboard node-id secret-key last-remote-fp)
+          (#'lan-clip.core/listen-clipboard node-id secret-key last-remote-fp nil)
           (is (true? @sent) "应发送")
           (is (= (:contents (get-clip-data clip nil)) (:contents @clip-data))))))))
 
@@ -54,7 +54,7 @@
         (.setContents clip (StringSelection. "local change log") nil)
         (with-redefs [handle-flavor (fn [& _] nil)]
           (let [output (with-out-str
-                         (#'lan-clip.core/listen-clipboard node-id secret-key last-remote-fp))]
+                         (#'lan-clip.core/listen-clipboard node-id secret-key last-remote-fp nil))]
             (is (re-find #"local-change" output) "应包含 local-change 日志")))))))
 
 (deftest listen-clipboard-logs-loop-suppressed
@@ -70,7 +70,7 @@
           (reset! last-remote-fp fp)
           (with-redefs [handle-flavor (fn [& _] nil)]
             (let [output (with-out-str
-                           (#'lan-clip.core/listen-clipboard node-id secret-key last-remote-fp))]
+                           (#'lan-clip.core/listen-clipboard node-id secret-key last-remote-fp nil))]
               (is (re-find #"loop-suppressed" output) "应包含 loop-suppressed 日志"))))))))
 
 (defn- mock-clipboard-with-files [files]

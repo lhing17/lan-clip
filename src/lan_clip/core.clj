@@ -79,16 +79,15 @@
   @clip-data
   (clip-data-changed? (get-clip-data clip conf))
   (reset! clip-data (get-clip-data clip conf))
-  (handle-flavor clip conf (UUID/randomUUID) "lan-clip")
-  (handle-flavor clip {:port 9002 :target-host "localhost" :target-port 9002} (UUID/randomUUID) "lan-clip")
+  (handle-flavor clip conf node-id "lan-clip")
+  (handle-flavor clip {:port 9002 :target-host "localhost" :target-port 9002} node-id "lan-clip")
   (def data (.getData clip DataFlavor/javaFileListFlavor))
-  (future (client/run (client/->Client "localhost" 9002 data "lan-clip" (UUID/randomUUID)))),)
+  (future (client/run (client/->Client "localhost" 9002 data "lan-clip" node-id))),)
 
-(defn- listen-clipboard [node-id secret-key last-remote-fp]
+(defn- listen-clipboard [node-id secret-key last-remote-fp conf]
   "监听剪贴版上的内容是否有变化，如果有变化，缓存剪贴版上的内容，并启动新客户端将剪贴板上的内容发送到目标服务器。
   若当前内容与 last-remote-fp 匹配，则判定为远端回环，抑制发送并输出 loop-suppressed。"
-  (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))
-        conf (config/load-config "config.edn")]
+  (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))]
     (let [new-clip-data (get-clip-data clip conf)]
       (when (clip-data-changed? new-clip-data)
         (if (and @last-remote-fp
@@ -110,11 +109,11 @@
 
 (defn lan-clip []
   (let [conf (config/load-config "config.edn")
-        node-id (UUID/randomUUID)
+        node-id (:node-id conf)
         secret-key (:secret-key conf)]
 
     ;; 默认每隔2秒钟访问剪切版的内容，可以通过:interval进行配置
-    (util/set-interval (:interval conf 2000) #(listen-clipboard node-id secret-key))
+    (util/set-interval (:interval conf 2000) #(listen-clipboard node-id secret-key (atom nil) conf))
 
     ;; 启动netty server，用于接收另一端传来的消息
     (-> conf (:port) (int) (server/->Server secret-key (:max-frame-size conf)) (.run) (future))))
@@ -127,7 +126,7 @@
         node-id (:node-id conf)
         secret-key (:secret-key conf)]
     (fn [_ last-remote-fp]
-      (listen-clipboard node-id secret-key last-remote-fp))))
+      (listen-clipboard node-id secret-key last-remote-fp conf))))
 
 (defn -main [& _]
   (app/start! "config.edn" (make-clipboard-handler)))

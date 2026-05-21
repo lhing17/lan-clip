@@ -25,3 +25,4 @@ ui/node_modules/
 ui/dist/
 ui/src-tauri/target/
 ui/src-tauri/Cargo.lock
+node_modules

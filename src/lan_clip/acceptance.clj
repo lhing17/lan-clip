@@ -75,7 +75,7 @@
                       core/handle-flavor
                       (fn [& _]
                         (reset! sent true))]
-          (#'core/listen-clipboard node-id secret last-remote-fp)
+          (#'core/listen-clipboard node-id secret last-remote-fp nil)
           {:success? (some? @last-remote-fp)
            :suppressed? (false? @sent)})
 
