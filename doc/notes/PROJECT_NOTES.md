@@ -37,3 +37,4 @@
 #2026-05-21 修复 TECHNICAL_DEBT.md #11：删除未使用的遗留文件 `src/lan_clip/socket/content.clj`（`Content` deftype）；同步更新 `project.clj` `:prep-tasks` 移除对该文件的 compile 步骤。`lein test` 109 测试 / 316 断言全绿。TECHNICAL_DEBT.md 删除对应条目。
 #2026-05-21 修复 TECHNICAL_DEBT.md #5：`api.clj` 定义 `sensitive-keys` 集合 `#{:secret-key :log-file :received-files-dir}`，`safe-config` 改用 `apply dissoc` 过滤所有敏感字段；同步更新 `api_test.clj` 中 `api-config-returns-default-config-when-not-running` 断言（去除 `:log-file` 应存在的旧断言，增加 `:log-file` 和 `:received-files-dir` 不应存在的断言）；新增 `api-safe-config-filters-sensitive-keys` 单元测试。`lein test` 110 测试 / 321 断言全绿。TECHNICAL_DEBT.md 删除对应条目。
 #2026-05-21 修复 TECHNICAL_DEBT.md #5（log.clj）：`log!` 中对 `println` 调用加 `locking *out*`，消除多线程日志行交错问题。`lein test` 110 测试 / 321 断言全绿。TECHNICAL_DEBT.md 删除对应条目。
+#2026-05-21 修复 TECHNICAL_DEBT.md #2：`server.clj` `->handler` docstring 中补充单消息短连接设计决策注释，说明每个 TCP 连接只处理一条消息、处理完后立即关闭连接（`(.close ctx)`），以及该设计简化状态管理的权衡。`lein test` 110 测试 / 321 断言全绿。TECHNICAL_DEBT.md 删除对应条目。

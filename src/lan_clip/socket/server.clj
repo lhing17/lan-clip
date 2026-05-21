@@ -61,7 +61,10 @@
 
 (defn- ->handler [on-apply received-files-dir]
   "创建一个 ChannelInboundHandlerAdapter 实例，用于处理接收到的 Message。
-  可选的 on-apply 回调会在消息成功处理后以 ClipboardData 指纹为参数被调用。"
+  可选的 on-apply 回调会在消息成功处理后以 ClipboardData 指纹为参数被调用。
+  设计决策：每个 TCP 连接只处理一条消息（单消息短连接）。channelRead 处理完消息后
+  立即调用 (.close ctx) 关闭连接。这简化了状态管理，避免了长连接下的心跳、重连、
+  并发消息顺序等复杂度。代价是频繁建连，但剪贴板同步频率低（秒级），可接受。"
   (proxy [ChannelInboundHandlerAdapter]
          []
     (channelRead [ctx msg]
