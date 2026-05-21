@@ -39,3 +39,4 @@
 #2026-05-21 修复 TECHNICAL_DEBT.md #5（log.clj）：`log!` 中对 `println` 调用加 `locking *out*`，消除多线程日志行交错问题。`lein test` 110 测试 / 321 断言全绿。TECHNICAL_DEBT.md 删除对应条目。
 #2026-05-21 修复 TECHNICAL_DEBT.md #2：`server.clj` `->handler` docstring 中补充单消息短连接设计决策注释，说明每个 TCP 连接只处理一条消息、处理完后立即关闭连接（`(.close ctx)`），以及该设计简化状态管理的权衡。`lein test` 110 测试 / 321 断言全绿。TECHNICAL_DEBT.md 删除对应条目。
 #2026-05-21 修复 TECHNICAL_DEBT.md #2（server.clj stop 阻塞）：`start-server` 的 `finally` 块中增加 `(when-not (realized? channel-promise) (deliver channel-promise nil))`，确保启动失败（如端口被占用）时 promise 被立即 deliver 为 `nil`，`stop!` 不再阻塞 10 秒。新增 `server-stop-does-not-block-when-start-fails` 测试验证端口占用场景下 `stop!` 在 1 秒内返回。`lein test` 111 测试 / 322 断言全绿。TECHNICAL_DEBT.md 删除对应条目。
+#2026-05-21 修复 TECHNICAL_DEBT.md #10：删除 `core.clj` 中废弃的 `lan-clip` 入口函数及其对 `util/set-interval` 的调用；删除 `util.clj` 中不可停止的 `set-interval` 函数。`lein test` 111 测试 / 322 断言全绿。TECHNICAL_DEBT.md 删除对应条目。

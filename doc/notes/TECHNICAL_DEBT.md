@@ -42,12 +42,6 @@
 
 ## P2 — 技术债（不影响当前功能，长期维护成本）
 
-### 10. `core.clj` — 遗留的 `lan-clip` 函数与不可停止的 `set-interval`
-
-- **位置**：`src/lan_clip/core.clj:111-120`、`src/lan_clip/util.clj:15-23`
-- **问题**：`lan-clip` 函数仍使用旧版不可停止的 `util/set-interval`，与新的 `app/start!` 生命周期并存，容易造成混淆。`set-interval` 的 `while true` 循环一旦启动无法优雅停止。
-- **建议**：删除废弃的 `lan-clip` 入口和 `set-interval` 函数，或添加 `@deprecated` 注释。
-
 ### 11. 多处 — 裸 `.printStackTrace` 散布
 
 - **位置**：`server.clj:77`、`client.clj:28`、`watcher.clj:21` 等

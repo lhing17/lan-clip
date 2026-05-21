@@ -100,18 +100,6 @@
                        "unknown"))
             (handle-flavor clip conf node-id secret-key)))))))
 
-(defn lan-clip []
-  (let [conf (config/load-config "config.edn")
-        node-id (:node-id conf)
-        secret-key (:secret-key conf)]
-
-    ;; 默认每隔2秒钟访问剪切版的内容，可以通过:interval进行配置
-    (util/set-interval (:interval conf 2000) #(listen-clipboard node-id secret-key (atom nil) conf))
-
-    ;; 启动netty server，用于接收另一端传来的消息
-    (-> conf (:port) (int) (server/->Server secret-key (:max-frame-size conf)) (.run) (future))))
-
-
 (defn make-clipboard-handler
   "创建可供 app/start! 使用的剪贴板处理函数。"
   []
