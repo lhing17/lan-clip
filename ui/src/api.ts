@@ -153,6 +153,7 @@ export async function saveConfig(
 }
 
 import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
+import { check, type Update } from "@tauri-apps/plugin-updater";
 
 export async function enableAutostart(): Promise<void> {
   await enable();
@@ -164,6 +165,10 @@ export async function disableAutostart(): Promise<void> {
 
 export async function getAutostartStatus(): Promise<boolean> {
   return isEnabled();
+}
+
+export async function checkForUpdate(): Promise<Update | null> {
+  return check();
 }
 
 export async function fetchRecentLogs(): Promise<LogEntry[]> {

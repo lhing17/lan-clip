@@ -12,6 +12,7 @@ import {
   enableAutostart,
   disableAutostart,
   getAutostartStatus,
+  checkForUpdate,
   type SidecarConfig,
   type LogEntry,
 } from "./api";
@@ -382,12 +383,35 @@ function ConfigPage() {
 
 function AboutPage() {
   const [version, setVersion] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<{ version: string; body?: string } | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [upToDate, setUpToDate] = useState(false);
 
   useEffect(() => {
     getVersion()
       .then((v) => setVersion(v))
       .catch(() => setVersion(null));
   }, []);
+
+  async function handleCheckUpdate() {
+    setChecking(true);
+    setUpdateInfo(null);
+    setUpdateError(null);
+    setUpToDate(false);
+    try {
+      const update = await checkForUpdate();
+      if (update) {
+        setUpdateInfo({ version: update.version, body: update.body });
+      } else {
+        setUpToDate(true);
+      }
+    } catch (e) {
+      setUpdateError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setChecking(false);
+    }
+  }
 
   return (
     <section className="card">
@@ -400,13 +424,34 @@ function AboutPage() {
         <span className="status-label">协议版本</span>
         <span className="status-value">1</span>
       </div>
+
+      {updateError && (
+        <div className="error-banner" style={{ marginTop: "0.75rem" }}>
+          检查更新失败：{updateError}
+        </div>
+      )}
+      {upToDate && (
+        <div className="info-banner" style={{ marginTop: "0.75rem" }}>
+          当前已是最新版本
+        </div>
+      )}
+      {updateInfo && (
+        <div className="info-banner" style={{ marginTop: "0.75rem" }}>
+          <strong>发现新版本 {updateInfo.version}</strong>
+          {updateInfo.body && (
+            <pre style={{ margin: "0.5rem 0 0", whiteSpace: "pre-wrap", fontSize: "0.85rem" }}>
+              {updateInfo.body}
+            </pre>
+          )}
+        </div>
+      )}
+
       <button
         className="toggle-btn"
-        onClick={() => {
-          alert("检查更新功能即将推出");
-        }}
+        onClick={handleCheckUpdate}
+        disabled={checking}
       >
-        检查更新
+        {checking ? "检查中..." : "检查更新"}
       </button>
     </section>
   );
