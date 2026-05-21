@@ -170,6 +170,23 @@
         (is (instance? io.netty.handler.codec.DecoderException @caught))
         (.finish ch)))))
 
+(deftest protocol-decoder-rejects-negative-length
+  (testing "->protocol-decoder 应拒绝负的或零的 length prefix"
+    (doseq [bad-len [-1 0]]
+      (let [^ByteBuf buf (Unpooled/buffer)
+            caught (atom nil)]
+        (.writeInt buf bad-len)
+        (.writeBytes buf (byte-array 1))
+        (let [ch (EmbeddedChannel. (into-array ChannelHandler
+                                               [(codec/->protocol-decoder test-secret 10485760)
+                                                (proxy [ChannelInboundHandlerAdapter] []
+                                                  (exceptionCaught [_ cause]
+                                                    (reset! caught cause)))]))]
+          (.writeInbound ch (into-array Object [buf]))
+          (is (some? @caught) (str "length=" bad-len " 应触发 exceptionCaught"))
+          (is (instance? io.netty.handler.codec.DecoderException @caught))
+          (.finish ch))))))
+
 (deftest roundtrip-encode-decode
   (testing "encoder 输出应能被 decoder 正确解码"
     (let [encoder-ch (EmbeddedChannel. (into-array ChannelHandler [(codec/->protocol-encoder test-origin test-sender test-secret)]))

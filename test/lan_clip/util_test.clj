@@ -46,3 +46,22 @@
             (org.apache.commons.io.FileUtils/deleteDirectory base-dir))
           (when (.exists dest-dir)
             (org.apache.commons.io.FileUtils/deleteDirectory dest-dir)))))))
+
+(deftest zip-bytes->files-rejects-path-traversal
+  (testing "zip entry 包含 .. 时应抛出异常，防止路径遍历"
+    (let [dest-dir (doto (File/createTempFile "zip-dst" "") (.delete))]
+      (try
+        (.mkdirs dest-dir)
+        ;; 构造一个恶意 zip：entry-name 为 "../../outside.txt"
+        (let [baos (java.io.ByteArrayOutputStream.)
+              zos (java.util.zip.ZipOutputStream. baos)]
+          (.putNextEntry zos (java.util.zip.ZipEntry. "../../outside.txt"))
+          (.write zos (.getBytes "malicious" "UTF-8"))
+          (.closeEntry zos)
+          (.close zos)
+          (is (thrown? Exception
+                       (util/zip-bytes->files (.toByteArray baos) dest-dir))
+              "应拒绝包含 .. 的 zip entry"))
+        (finally
+          (when (.exists dest-dir)
+            (org.apache.commons.io.FileUtils/deleteDirectory dest-dir)))))))
