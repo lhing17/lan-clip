@@ -11,7 +11,9 @@
                  [com.formdev/flatlaf "2.2"]
                  [commons-io "2.11.0"]
                  [cljfx "1.7.19"]
-                 [nrepl "0.9.0"]]
+                 [nrepl "0.9.0"]
+                 [http-kit "2.7.0"]
+                 [metosin/reitit "0.7.0-alpha5"]]
   :mirrors {"clojars" {:name "ustc"
                        :url "https://mirrors.tuna.tsinghua.edu.cn/clojars"}}
 

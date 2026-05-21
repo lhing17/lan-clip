@@ -24,7 +24,6 @@
 (defmethod handle-flavor DataFlavor/stringFlavor [clip conf node-id secret-key]
   (let [data (.getData clip DataFlavor/stringFlavor)
         clnt (client/->Client (:target-host conf) (:target-port conf) data secret-key node-id)]
-    (println data)
     (future (client/run clnt))))
 
 (defmethod handle-flavor DataFlavor/imageFlavor [clip conf node-id secret-key]
@@ -34,8 +33,14 @@
 
 (defmethod handle-flavor DataFlavor/javaFileListFlavor [clip conf node-id secret-key]
   (let [data (.getData clip DataFlavor/javaFileListFlavor)
-        clnt (client/->Client (:target-host conf) (:target-port conf) data secret-key node-id)]
-    (future (client/run clnt))))
+        max-size-kb (:file-size conf 2048)
+        max-size-bytes (* max-size-kb 1024)
+        oversized (filter #(> (.length ^File %) max-size-bytes) data)]
+    (if (seq oversized)
+      (doseq [^File f oversized]
+        (println "file-too-large:" (.getName f) "(" (.length f) "bytes >" max-size-kb "KB)"))
+      (let [clnt (client/->Client (:target-host conf) (:target-port conf) data secret-key node-id)]
+        (future (client/run clnt))))))
 
 ;; 用于描述剪贴版上内容的类 信息包括内容类型、长度和内容，其中内容类型包括字符串、图像或文件列表
 ;; 如果类型为字符串或图像，长度为字符串或图像的大小，如果类型为文件列表，长度为文件列表中文件数量（List的长度）
@@ -79,14 +84,29 @@
   (def data (.getData clip DataFlavor/javaFileListFlavor))
   (future (client/run (client/->Client "localhost" 9002 data "lan-clip" (UUID/randomUUID)))),)
 
-(defn- listen-clipboard [node-id secret-key]
-  "监听剪贴版上的内容是否有变化，如果有变化，缓存剪贴版上的内容，并启动新客户端将剪贴板上的内容发送到目标服务器"
+(defn- listen-clipboard [node-id secret-key last-remote-fp]
+  "监听剪贴版上的内容是否有变化，如果有变化，缓存剪贴版上的内容，并启动新客户端将剪贴板上的内容发送到目标服务器。
+  若当前内容与 last-remote-fp 匹配，则判定为远端回环，抑制发送并输出 loop-suppressed。"
   (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))
         conf (config/load-config "config.edn")]
     (let [new-clip-data (get-clip-data clip conf)]
       (when (clip-data-changed? new-clip-data)
-        (reset! clip-data new-clip-data)
-        (handle-flavor clip conf node-id secret-key)))))
+        (if (and @last-remote-fp
+                 (= (:flavor new-clip-data) (:flavor @last-remote-fp))
+                 (= (:length new-clip-data) (:length @last-remote-fp))
+                 (= (:contents new-clip-data) (:contents @last-remote-fp)))
+          (do
+            (reset! clip-data new-clip-data)
+            (println "loop-suppressed"))
+          (do
+            (reset! clip-data new-clip-data)
+            (println "local-change:"
+                     (condp = (:flavor new-clip-data)
+                       DataFlavor/stringFlavor "text"
+                       DataFlavor/imageFlavor "image"
+                       DataFlavor/javaFileListFlavor "file-list"
+                       "unknown"))
+            (handle-flavor clip conf node-id secret-key)))))))
 
 (defn lan-clip []
   (let [conf (config/load-config "config.edn")
@@ -100,10 +120,17 @@
     (-> conf (:port) (int) (server/->Server secret-key (:max-frame-size conf)) (.run) (future))))
 
 
+(defn make-clipboard-handler
+  "创建可供 app/start! 使用的剪贴板处理函数。"
+  []
+  (let [conf (config/load-config "config.edn")
+        node-id (:node-id conf)
+        secret-key (:secret-key conf)]
+    (fn [_ last-remote-fp]
+      (listen-clipboard node-id secret-key last-remote-fp))))
+
 (defn -main [& _]
-  (let [node-id (UUID/randomUUID)
-        secret-key (:secret-key (config/load-config "config.edn"))]
-    (app/start! "config.edn" (fn [_] (listen-clipboard node-id secret-key)))))
+  (app/start! "config.edn" (make-clipboard-handler)))
 
 (comment
   (-main),)

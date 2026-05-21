@@ -1,6 +1,7 @@
 (ns lan-clip.util
   (:require [clojure.java.io :as jio]
-            [clojure.edn :as edn])
+            [clojure.edn :as edn]
+            [clojure.string :as str])
   (:import (org.apache.commons.codec.digest DigestUtils)
            (java.awt Image Color)
            (java.awt.image BufferedImage ImageObserver)
@@ -101,6 +102,11 @@
   InputStream
   (md5 [this] (DigestUtils/md5Hex this))
 
+  File
+  (md5 [this]
+    (with-open [is (jio/input-stream this)]
+      (DigestUtils/md5Hex is)))
+
   BufferedImage
   (md5 [this] (DigestUtils/md5Hex (image->bytes this)))
 
@@ -127,28 +133,66 @@
     img))
 
 ;; 将文件清单设置到剪贴板的类型
+(defn- common-parent
+  "找到文件列表的最近公共父目录。"
+  [files]
+  (when (seq files)
+    (let [path-strs (map #(.getCanonicalPath (.getParentFile (.getCanonicalFile ^File %))) files)]
+      (loop [candidate (first path-strs)]
+        (if (every? #(or (= % candidate)
+                         (str/starts-with? % (str candidate File/separator)))
+                    path-strs)
+          (java.io.File. candidate)
+          (recur (.getParent (java.io.File. candidate))))))))
+
 (defn files->zip-bytes
-  "将文件列表打包为 zip 字节数组，保留文件名。"
+  "将文件列表打包为 zip 字节数组，保留文件相对于最近公共父目录的目录结构。"
   [^java.util.List files]
   (let [baos (ByteArrayOutputStream.)
-        zos (ZipOutputStream. baos)]
+        zos (ZipOutputStream. baos)
+        base (common-parent files)]
     (doseq [^File f files]
-      (.putNextEntry zos (ZipEntry. (.getName f)))
-      (with-open [is (jio/input-stream f)]
-        (jio/copy is zos))
-      (.closeEntry zos))
+      (let [entry-name (if base
+                         (let [base-path (.getCanonicalPath base)
+                               file-path (.getCanonicalPath f)]
+                           (subs file-path (inc (count base-path))))
+                         (.getName f))]
+        (.putNextEntry zos (ZipEntry. entry-name))
+        (with-open [is (jio/input-stream f)]
+          (jio/copy is zos))
+        (.closeEntry zos)))
     (.close zos)
     (.toByteArray baos)))
 
+(defn- unique-file
+  "如果 f 已存在，返回一个带序号的不冲突文件名，如 existing.txt → existing (1).txt。"
+  [^File f]
+  (if-not (.exists f)
+    f
+    (let [name (.getName f)
+          parent (.getParentFile f)
+          dot-index (.lastIndexOf name ".")
+          [base ext] (if (pos? dot-index)
+                       [(.substring name 0 dot-index) (.substring name dot-index)]
+                       [name ""])]
+      (loop [n 1]
+        (let [candidate (File. parent (str base " (" n ")" ext))]
+          (if (.exists candidate)
+            (recur (inc n))
+            candidate))))))
+
 (defn zip-bytes->files
-  "将 zip 字节数组解压到 dest-dir，返回文件列表。"
+  "将 zip 字节数组解压到 dest-dir，返回文件列表。
+  保留 zip entry 中的目录结构。若目标目录已存在同名文件，自动重命名为 name (1).ext 等避免覆盖。"
   [^bytes zip-bytes ^File dest-dir]
   (.mkdirs dest-dir)
   (let [result (java.util.ArrayList.)]
     (with-open [zis (ZipInputStream. (ByteArrayInputStream. zip-bytes))]
       (loop [entry (.getNextEntry zis)]
         (when entry
-          (let [f (File. dest-dir (.getName entry))]
+          (let [entry-name (.getName entry)
+                f (unique-file (File. dest-dir entry-name))]
+            (.mkdirs (.getParentFile f))
             (with-open [fos (FileOutputStream. f)]
               (jio/copy zis fos))
             (.add result f))

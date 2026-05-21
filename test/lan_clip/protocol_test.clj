@@ -78,3 +78,30 @@
       (is (java.util.Arrays/equals zip-bytes ^bytes (:payload decoded)))
       (is (= test-origin-id (:origin-node-id decoded)))
       (is (= test-sender-id (:sender-node-id decoded))))))
+
+(deftest file-list-message-with-metadata-roundtrip
+  (testing "文件列表消息编码时应支持文件元数据，解码后应还原"
+    (let [zip-bytes (byte-array [0x50 0x4B 0x03 0x04])
+          file-meta [{:name "foo.txt" :size 12 :hash "abc123"}
+                     {:name "bar.png" :size 4096 :hash "def456"}]
+          encoded (protocol/encode-file-list-message zip-bytes test-origin-id test-sender-id test-key {:files file-meta})
+          decoded (protocol/decode-message encoded test-key)]
+      (is (= :file-list (:content-type decoded)))
+      (is (java.util.Arrays/equals zip-bytes ^bytes (:payload decoded)))
+      (let [metadata (clojure.edn/read-string (:metadata decoded))]
+        (is (= file-meta (:files metadata)) "metadata 应包含文件列表元信息")))))
+
+(deftest reserved-content-types-roundtrip
+  (testing "预留的 content-type 应能正确编码与解码"
+    (doseq [[encoder expected-ct]
+            [[protocol/encode-chunk-start-message :chunk-start]
+             [protocol/encode-chunk-data-message :chunk-data]
+             [protocol/encode-chunk-end-message :chunk-end]
+             [protocol/encode-cancel-message :cancel]]]
+      (let [payload (byte-array [0x01 0x02 0x03])
+            encoded (encoder payload test-origin-id test-sender-id test-key)
+            decoded (protocol/decode-message encoded test-key)]
+        (is (= expected-ct (:content-type decoded))
+            (str "预留类型 " expected-ct " 应能正确解码"))
+        (is (java.util.Arrays/equals payload ^bytes (:payload decoded))
+            (str "预留类型 " expected-ct " 的 payload 应能还原"))))))

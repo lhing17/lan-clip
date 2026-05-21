@@ -39,7 +39,12 @@
         (and (instance? List msg)
              (every? #(instance? File %) msg))
         (let [zip-bytes (util/files->zip-bytes msg)
-              frame (protocol/encode-file-list-message zip-bytes origin-node-id sender-node-id secret-key)]
+              file-meta (mapv (fn [^File f]
+                                {:name (.getName f)
+                                 :size (.length f)
+                                 :hash (util/md5 f)})
+                              msg)
+              frame (protocol/encode-file-list-message zip-bytes origin-node-id sender-node-id secret-key {:files file-meta})]
           (.write ctx (encode-frame frame) promise))
 
         :else

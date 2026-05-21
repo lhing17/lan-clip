@@ -7,6 +7,20 @@
 (def ^:private app-state
   (atom nil))
 
+(def ^:private last-remote-fp
+  (atom nil))
+
+(defn last-remote-fingerprint
+  "返回最近一次远端写入剪贴板的内容指纹（ClipboardData），若尚未收到则为 nil。"
+  []
+  @last-remote-fp)
+
+(defn current-config
+  "返回当前运行中的完整配置；若应用未运行则返回 nil。"
+  []
+  (when-let [st @app-state]
+    (:config st)))
+
 (defn status
   "返回当前应用状态。"
   []
@@ -21,7 +35,7 @@
 (defn start!
   "启动 lan-clip 应用。
   - conf-path: 配置文件路径字符串；传 nil 时使用默认配置。
-  - clipboard-handler: 每次轮询触发的回调，签名为 (fn [config]) -> nil
+  - clipboard-handler: 每次轮询触发的回调，签名为 (fn [config last-remote-fp]) -> nil
   返回当前状态 map（含 :running? 与 :config）。"
   ([clipboard-handler]
    (start! nil clipboard-handler))
@@ -33,10 +47,11 @@
                config/default-config)
          validated (config/validate-config cfg)
          w-ctrl (watcher/start-watcher (:interval validated)
-                                       #(clipboard-handler validated))
+                                       #(clipboard-handler validated last-remote-fp))
          s-ctrl (server/start-server (:port validated)
                                      (:secret-key validated)
-                                     (:max-frame-size validated))]
+                                     (:max-frame-size validated)
+                                     #(reset! last-remote-fp %))]
      (reset! app-state {:running? true
                         :config   validated
                         :watcher  w-ctrl
@@ -53,4 +68,5 @@
     (when-let [s (:server st)]
       ((:stop! s))))
   (reset! app-state nil)
+  (reset! last-remote-fp nil)
   (status))

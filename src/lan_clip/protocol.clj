@@ -32,6 +32,10 @@
     :text (byte 1)
     :image (byte 2)
     :file-list (byte 3)
+    :chunk-start (byte 4)
+    :chunk-data (byte 5)
+    :chunk-end (byte 6)
+    :cancel (byte 7)
     (byte 0)))
 
 (defn- byte->content-type [b]
@@ -39,6 +43,10 @@
     1 :text
     2 :image
     3 :file-list
+    4 :chunk-start
+    5 :chunk-data
+    6 :chunk-end
+    7 :cancel
     :unknown))
 
 (defn- uuid->bytes [^UUID uuid]
@@ -58,10 +66,12 @@
     (.doFinal mac data)))
 
 (defn- encode-message
-  "通用消息编码：content-type + payload-bytes → 带 HMAC 的二进制字节数组。"
-  [content-type ^bytes payload-bytes origin-node-id sender-node-id secret-key]
+  "通用消息编码：content-type + payload-bytes → 带 HMAC 的二进制字节数组。
+  可选的 extra-metadata map 会与 {:content-type content-type} 合并后序列化。"
+  [content-type ^bytes payload-bytes origin-node-id sender-node-id secret-key & [extra-metadata]]
   (let [message-id (UUID/randomUUID)
-        metadata-bytes (.getBytes (pr-str {:content-type content-type}) "UTF-8")
+        metadata-map (merge {:content-type content-type} extra-metadata)
+        metadata-bytes (.getBytes (pr-str metadata-map) "UTF-8")
         metadata-len (count metadata-bytes)
         payload-len (count payload-bytes)
         body-size (+ metadata-len payload-len)
@@ -93,9 +103,31 @@
   (encode-message :image image-bytes origin-node-id sender-node-id secret-key))
 
 (defn encode-file-list-message
-  "将文件列表消息（zip 字节数组）编码为带 HMAC 签名的二进制字节数组。"
-  [^bytes zip-bytes origin-node-id sender-node-id secret-key]
-  (encode-message :file-list zip-bytes origin-node-id sender-node-id secret-key))
+  "将文件列表消息（zip 字节数组）编码为带 HMAC 签名的二进制字节数组。
+  可选的 file-metadata 为文件元信息 map（如 {:files [{:name ... :size ... :hash ...}]}），
+  会与 {:content-type :file-list} 合并后写入 metadata 字段。"
+  [^bytes zip-bytes origin-node-id sender-node-id secret-key & [file-metadata]]
+  (encode-message :file-list zip-bytes origin-node-id sender-node-id secret-key file-metadata))
+
+(defn encode-chunk-start-message
+  "预留：分块传输起始消息编码。"
+  [^bytes payload-bytes origin-node-id sender-node-id secret-key]
+  (encode-message :chunk-start payload-bytes origin-node-id sender-node-id secret-key))
+
+(defn encode-chunk-data-message
+  "预留：分块传输数据消息编码。"
+  [^bytes payload-bytes origin-node-id sender-node-id secret-key]
+  (encode-message :chunk-data payload-bytes origin-node-id sender-node-id secret-key))
+
+(defn encode-chunk-end-message
+  "预留：分块传输结束消息编码。"
+  [^bytes payload-bytes origin-node-id sender-node-id secret-key]
+  (encode-message :chunk-end payload-bytes origin-node-id sender-node-id secret-key))
+
+(defn encode-cancel-message
+  "预留：取消传输消息编码。"
+  [^bytes payload-bytes origin-node-id sender-node-id secret-key]
+  (encode-message :cancel payload-bytes origin-node-id sender-node-id secret-key))
 
 (defn decode-message
   "解码二进制消息并验证 HMAC。验证失败或格式错误时抛 ex-info。"

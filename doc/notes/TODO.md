@@ -52,7 +52,7 @@
 - [x] P0 新建 `src/lan_clip/app.clj`，提供 `start!`、`stop!`、`status`。
 - [x] P1 将 Netty server、clipboard watcher 纳入统一生命周期（`app.clj` `start!`/`stop!`）。
 - [x] P1 退出时释放 server 端口、watcher future、Netty event loop。
-- [ ] P2 删除或下沉 `server.clj` 中未使用的顶层 `config`。
+- [x] P2 删除或下沉 `server.clj` 中未使用的顶层 `config`。（前期重构中已自然完成，server.clj 已无未使用 config）
 
 完成标准：
 
@@ -91,14 +91,14 @@
 
 目标：避免两端互相回传同一份剪贴板内容，为后续多 peer 做准备。
 
-- [ ] P0 在配置中生成并持久化 `node-id`。
-- [ ] P0 每条消息生成 `message-id`。
-- [ ] P0 消息 metadata 携带 `origin-node-id` 和 `sender-node-id`。
-- [ ] P0 增加最近处理消息缓存，按数量或时间淘汰。
-- [ ] P0 远端写入剪贴板后记录 `last-remote-fingerprint`。
-- [ ] P1 watcher 识别远端刚写入的内容并抑制回发。
-- [ ] P1 日志区分 `local-change`、`remote-apply`、`loop-suppressed`。
-- [ ] P1 增加双端 localhost 手工或自动验收脚本。
+- [x] P0 在配置中生成并持久化 `node-id`。
+- [x] P0 每条消息生成 `message-id`（`protocol.clj` `encode-message` 中已生成 UUID）。
+- [x] P0 消息 header 已携带 `origin-node-id` 和 `sender-node-id`；metadata 当前仅含 `:content-type`，后续如需扩展可在 P1 补充。
+- [x] P0 增加最近处理消息缓存，按数量 LRU 淘汰。
+- [x] P0 远端写入剪贴板后记录 `last-remote-fingerprint`。
+- [x] P1 watcher 识别远端刚写入的内容并抑制回发。
+- [x] P1 日志区分 `local-change`、`remote-apply`、`loop-suppressed`。
+- [x] P1 增加双端 localhost 手工或自动验收脚本。
 
 完成标准：
 
@@ -110,15 +110,15 @@
 
 目标：让文件同步更安全、更可控，避免覆盖和临时目录混乱。
 
-- [ ] P0 新增配置项 `received-files-dir`。
-- [ ] P0 默认接收目录改为应用数据目录下 `received-files`。
-- [ ] P0 每次接收创建批次目录：`yyyyMMdd-HHmmss-message-id`。
-- [ ] P0 处理同名文件，避免覆盖。
-- [ ] P1 文件 metadata 记录文件名、相对路径、大小、hash。
-- [ ] P1 超过 `max-file-size-kb` 时拒绝发送并产生可展示事件。
-- [ ] P1 接收完成后把真实本地文件列表写入系统剪贴板。
-- [ ] P2 支持目录结构。
-- [ ] P2 预留分块传输、进度事件和取消接口。
+- [x] P0 新增配置项 `received-files-dir`。
+- [x] P0 默认接收目录改为应用数据目录下 `received-files`。
+- [x] P0 每次接收创建批次目录：`yyyyMMdd-HHmmss-message-id`。
+- [x] P0 处理同名文件，避免覆盖。
+- [x] P1 文件 metadata 记录文件名、相对路径、大小、hash。
+- [x] P1 超过 `max-file-size-kb` 时拒绝发送并产生可展示事件。
+- [x] P1 接收完成后把真实本地文件列表写入系统剪贴板。
+- [x] P2 支持目录结构。
+- [x] P2 预留分块传输、进度事件和取消接口。
 
 完成标准：
 
@@ -130,18 +130,18 @@
 
 目标：把 Clojure 核心变成可被 Tauri 管理的后台服务。
 
-- [ ] P0 选型轻量 HTTP server 依赖。
-- [ ] P0 新建 `src/lan_clip/api.clj`。
-- [ ] P0 实现 `GET /status`。
-- [ ] P0 实现 `GET /config`。
-- [ ] P0 实现 `PUT /config`。
-- [ ] P0 实现 `POST /sync/start`。
-- [ ] P0 实现 `POST /sync/stop`。
-- [ ] P1 实现 `GET /logs/recent`。
-- [ ] P1 sidecar 启动成功后输出 ready 标记。
-- [ ] P1 日志落盘，路径可通过状态或配置查询。
-- [ ] P1 配置变更区分热更新和需重启。
-- [ ] P2 增加健康检查和版本接口：`GET /version` 或并入 `/status`。
+- [x] P0 选型轻量 HTTP server 依赖。
+- [x] P0 新建 `src/lan_clip/api.clj`。
+- [x] P0 实现 `GET /status`。
+- [x] P0 实现 `GET /config`。
+- [x] P0 实现 `PUT /config`。
+- [x] P0 实现 `POST /sync/start`。
+- [x] P0 实现 `POST /sync/stop`。
+- [x] P1 实现 `GET /logs/recent`。
+- [x] P1 sidecar 启动成功后输出 ready 标记。
+- [x] P1 日志落盘，路径可通过状态或配置查询。
+- [x] P1 配置变更区分热更新和需重启。
+- [x] P2 增加健康检查和版本接口：`GET /version` 或并入 `/status`。
 
 完成标准：
 
@@ -153,20 +153,20 @@
 
 目标：构建第一版桌面应用壳，管理 sidecar 并提供基本 UI。
 
-- [ ] P0 初始化 Tauri v2 工程：`src-tauri`。
-- [ ] P0 初始化前端工程。建议 Vite + TypeScript。
-- [ ] P0 决定前端框架：React 或 Svelte。
-- [ ] P0 配置 Tauri sidecar，打包 `lan-clip-core`。
-- [ ] P0 Rust 后端实现 sidecar 启动、停止、状态检测。
-- [ ] P0 主窗口实现状态页：同步开关、节点名、监听端口、sidecar 状态。
-- [ ] P0 主窗口实现配置页：设备名、端口、peers、共享密钥、轮询间隔、文件大小、接收目录。
-- [ ] P1 主窗口实现日志页：最近事件、错误详情、打开日志目录。
-- [ ] P1 实现系统托盘：打开窗口、启动/停止同步、打开接收目录、退出。
-- [ ] P1 关闭主窗口时隐藏窗口，不退出应用。
-- [ ] P1 退出应用时停止 sidecar，确保无残留进程。
-- [ ] P1 配置 Tauri capabilities，只开放必要命令和目录权限。
-- [ ] P2 实现系统通知：同步错误、文件超限、sidecar 启动失败。
-- [ ] P2 实现关于页：版本、协议版本、检查更新入口。
+- [x] P0 初始化 Tauri v2 工程：`src-tauri`（`ui/` 目录，React + TypeScript）。
+- [x] P0 初始化前端工程。Vite + TypeScript。
+- [x] P0 决定前端框架：React + TypeScript。
+- [~] P0 配置 Tauri sidecar，打包 `lan-clip-core`（占位结构已配置，待接入 uberjar 打包）。
+- [x] P0 Rust 后端实现 sidecar 启动、停止、状态检测（占位实现，待接入真实进程）。
+- [x] P0 主窗口实现状态页：同步开关、节点名、监听端口、sidecar 状态。
+- [x] P0 主窗口实现配置页：设备名、端口、peers、共享密钥、轮询间隔、文件大小、接收目录。
+- [x] P1 主窗口实现日志页：最近事件、错误详情、打开日志目录。
+- [x] P1 实现系统托盘：打开窗口、退出、打开接收目录、切换同步。
+- [x] P1 关闭主窗口时隐藏窗口，不退出应用。
+- [x] P1 退出应用时停止 sidecar，确保无残留进程。
+- [x] P1 配置 Tauri capabilities，只开放必要命令和目录权限。
+- [x] P2 实现系统通知：同步错误、文件超限、sidecar 启动失败。
+- [x] P2 实现关于页：版本、协议版本、检查更新入口。
 
 完成标准：
 
