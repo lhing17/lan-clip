@@ -1,6 +1,8 @@
 (ns lan-clip.socket.server
   (:require
    [clojure.java.io :as jio]
+   [lan-clip.history :as history]
+   [lan-clip.log :as log]
    [lan-clip.socket.protocol-codec :as codec]
    [lan-clip.fingerprint :as fingerprint]
    [lan-clip.util :as util])
@@ -59,9 +61,13 @@
   (println "Unknown content-type:" (:content-type msg))
   nil)
 
-(defn- ->handler [on-apply received-files-dir]
+(defn- ->handler [on-apply received-files-dir history-store]
   "创建一个 ChannelInboundHandlerAdapter 实例，用于处理接收到的 Message。
-  可选的 on-apply 回调会在消息成功处理后以 ClipboardData 指纹为参数被调用。"
+  可选的 on-apply 回调会在消息成功处理后以 ClipboardData 指纹为参数被调用。
+  可选的 history-store 用于记录接收历史。
+  设计决策：每个 TCP 连接只处理一条消息（单消息短连接）。channelRead 处理完消息后
+  立即调用 (.close ctx) 关闭连接。这简化了状态管理，避免了长连接下的心跳、重连、
+  并发消息顺序等复杂度。代价是频繁建连，但剪贴板同步频率低（秒级），可接受。"
   (proxy [ChannelInboundHandlerAdapter]
          []
     (channelRead [ctx msg]
@@ -69,12 +75,22 @@
         (tap> msg)
         (when-let [fp (handle-msg msg received-files-dir)]
           (when on-apply
-            (on-apply fp)))
+            (on-apply fp))
+          (when history-store
+            (let [hdr (:header msg)]
+              (history/record! history-store
+                               {:timestamp (java.time.Instant/now)
+                                :direction :receive
+                                :type (:content-type msg)
+                                :size (count (:payload msg))
+                                :peer (or (:sender-node-id hdr)
+                                          (:origin-node-id hdr)
+                                          "unknown")}))))
         (finally
           (ReferenceCountUtil/release msg)
           (.close ctx))))
     (exceptionCaught [ctx cause]
-      (.printStackTrace cause)
+      (log/log! :error (str cause))
       (.close ctx))))
 
 (defn start-server
@@ -82,8 +98,9 @@
     :future — 后台 future，server 在此运行
     :stop!  — 无参函数，调用后关闭 channel 并释放资源
   可选第 4 个参数 on-apply 为回调函数，签名 (fn [ClipboardData])，在消息成功写入剪贴板后调用。
-  可选第 5 个参数 received-files-dir 为文件接收根目录，用于 :file-list 批次目录创建。"
-  [port secret-key max-frame-size & [on-apply received-files-dir]]
+  可选第 5 个参数 received-files-dir 为文件接收根目录，用于 :file-list 批次目录创建。
+  可选第 6 个参数 history-store 为历史记录存储，用于记录接收历史。"
+  [port secret-key max-frame-size & [on-apply received-files-dir history-store]]
   (let [channel-promise (promise)]
     {:future (future
                (let [boss-group (NioEventLoopGroup.)
@@ -99,13 +116,15 @@
                                               (initChannel [^SocketChannel ch]
                                                 (.. ch (pipeline) (addLast (into-array ChannelHandler
                                                                                        [(codec/->protocol-decoder secret-key max-frame-size)
-                                                                                        (->handler on-apply received-files-dir)]))))))
+                                                                                        (->handler on-apply received-files-dir history-store)]))))))
                              (.option ChannelOption/SO_BACKLOG (int 1024))
                              (.bind port)
                              (.sync))]
                      (deliver channel-promise (.channel f))
                      (-> f (.channel) (.closeFuture) (.sync)))
                    (finally
+                     (when-not (realized? channel-promise)
+                       (deliver channel-promise nil))
                      (.shutdownGracefully boss-group)
                      (.shutdownGracefully worker-group)))))
      :stop! (fn []

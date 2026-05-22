@@ -5,33 +5,28 @@
             [lan-clip.log :as log]
             [org.httpkit.client :as http])
   (:import (java.net ServerSocket)))
-
 (defn- random-port
   "返回一个当前未被占用的随机端口。"
   []
   (with-open [ss (ServerSocket. 0)]
     (.getLocalPort ss)))
-
 (deftest api-server-can-start-and-stop
   (testing "API server 应能启动并在 stop 后释放端口"
     (let [port (random-port)
           server (api/start-api-server port)]
       (try
-        (Thread/sleep 200)
         (is (some? server) "应有 server 对象")
         (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/status"))
               body-str (slurp body)]
           (is (= 200 status) "/status 应返回 200"))
         (finally
           (api/stop-api-server server)
-          (Thread/sleep 200))))))
-
+          )))))
 (deftest api-status-returns-running-state
   (testing "GET /status 应返回运行状态"
     (let [port (random-port)
           server (api/start-api-server port)]
       (try
-        (Thread/sleep 200)
         (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/status"))
               body-str (slurp body)
               parsed (clojure.edn/read-string body-str)]
@@ -40,14 +35,12 @@
           (is (false? (:running? parsed))))
         (finally
           (api/stop-api-server server)
-          (Thread/sleep 200))))))
-
+          )))))
 (deftest api-status-returns-version
   (testing "GET /status 应返回版本与协议版本"
     (let [port (random-port)
           server (api/start-api-server port)]
       (try
-        (Thread/sleep 200)
         (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/status"))
               body-str (slurp body)
               parsed (clojure.edn/read-string body-str)]
@@ -59,8 +52,7 @@
           (is (= 1 (:protocol-version parsed))))
         (finally
           (api/stop-api-server server)
-          (Thread/sleep 200))))))
-
+          )))))
 (deftest api-status-includes-node-id-when-running
   (testing "GET /status 当应用运行时应返回 node-id"
     (with-redefs [app/status (fn [] {:running? true
@@ -69,7 +61,6 @@
       (let [port (random-port)
             server (api/start-api-server port)]
         (try
-          (Thread/sleep 200)
           (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/status"))
                 body-str (slurp body)
                 parsed (clojure.edn/read-string body-str)]
@@ -78,15 +69,32 @@
             (is (= #uuid "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" (:node-id parsed))))
           (finally
             (api/stop-api-server server)
-            (Thread/sleep 200)))))))
-
+            ))))))
+(deftest api-status-includes-peer-count-when-running
+  (testing "GET /status 当应用运行时应返回 peer-count"
+    (with-redefs [app/status (fn [] {:running? true
+                                     :config {:port 9002
+                                              :node-id #uuid "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}})
+                  app/current-discovery-registry (fn [] (atom {}))]
+      (let [port (random-port)
+            server (api/start-api-server port)]
+        (try
+          (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/status"))
+                body-str (slurp body)
+                parsed (clojure.edn/read-string body-str)]
+            (is (= 200 status))
+            (is (contains? parsed :peer-count))
+            (is (int? (:peer-count parsed)))
+            (is (= 0 (:peer-count parsed))))
+          (finally
+            (api/stop-api-server server)
+            ))))))
 (deftest api-config-returns-default-config-when-not-running
-  (testing "GET /config 当应用未运行时应返回默认配置（不含 secret-key）"
+  (testing "GET /config 当应用未运行时应返回默认配置（不含敏感字段）"
     (app/stop!)
     (let [port (random-port)
           server (api/start-api-server port)]
       (try
-        (Thread/sleep 200)
         (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/config"))
               body-str (slurp body)
               parsed (clojure.edn/read-string body-str)]
@@ -94,13 +102,22 @@
           (is (map? parsed))
           (is (contains? parsed :port))
           (is (= 9002 (:port parsed)))
-          (is (contains? parsed :log-file) "应包含日志文件路径")
-          (is (string? (:log-file parsed)))
-          (is (not (contains? parsed :secret-key)) "不应包含 secret-key"))
+          (is (not (contains? parsed :secret-key)) "不应包含 secret-key")
+          (is (not (contains? parsed :log-file)) "不应包含 log-file")
+          (is (not (contains? parsed :received-files-dir)) "不应包含 received-files-dir"))
         (finally
           (api/stop-api-server server)
-          (Thread/sleep 200))))))
-
+          )))))
+(deftest api-safe-config-filters-sensitive-keys
+  (testing "safe-config 应过滤所有敏感字段"
+    (let [cfg {:port 9002 :secret-key "s3cr3t" :log-file "/tmp/lan-clip.log"
+               :received-files-dir "/tmp/received" :target-host "localhost"}
+          result (@#'api/safe-config cfg)]
+      (is (not (contains? result :secret-key)))
+      (is (not (contains? result :log-file)))
+      (is (not (contains? result :received-files-dir)))
+      (is (= 9002 (:port result)))
+      (is (= "localhost" (:target-host result))))))
 (deftest api-start-sync-starts-app
   (testing "POST /sync/start 应启动同步并返回运行状态"
     (app/stop!)
@@ -109,7 +126,6 @@
       (let [port (random-port)
             server (api/start-api-server port)]
         (try
-          (Thread/sleep 200)
           (let [{:keys [status body]} @(http/post (str "http://localhost:" port "/sync/start"))
                 body-str (slurp body)
                 parsed (clojure.edn/read-string body-str)]
@@ -117,8 +133,7 @@
             (is (true? (:running? parsed))))
           (finally
             (api/stop-api-server server)
-            (Thread/sleep 200)))))))
-
+            ))))))
 (deftest api-stop-sync-stops-app
   (testing "POST /sync/stop 应停止同步并返回停止状态"
     (with-redefs [app/start! (fn [& _] {:running? true :config {:port 9002}})
@@ -126,7 +141,6 @@
       (let [port (random-port)
             server (api/start-api-server port)]
         (try
-          (Thread/sleep 200)
           @(http/post (str "http://localhost:" port "/sync/start"))
           (let [{:keys [status body]} @(http/post (str "http://localhost:" port "/sync/stop"))
                 body-str (slurp body)
@@ -135,8 +149,7 @@
             (is (false? (:running? parsed))))
           (finally
             (api/stop-api-server server)
-            (Thread/sleep 200)))))))
-
+            ))))))
 (deftest api-put-config-saves-config
   (testing "PUT /config 应保存配置并返回成功"
     (let [temp-file (doto (java.io.File/createTempFile "config" ".edn") (.deleteOnExit))
@@ -145,7 +158,6 @@
           _ (api/set-config-path! (.getAbsolutePath temp-file))
           server (api/start-api-server port)]
       (try
-        (Thread/sleep 200)
         (let [{:keys [status body]} @(http/put (str "http://localhost:" port "/config")
                                                {:body (pr-str {:target-host "192.168.1.100"})
                                                 :headers {"Content-Type" "application/edn"}})
@@ -158,8 +170,7 @@
             (is (= 9003 (:port saved)) "原有配置应保留")))
         (finally
           (api/stop-api-server server)
-          (Thread/sleep 200))))))
-
+          )))))
 (deftest api-put-config-restart-required-for-port
   (testing "PUT /config 修改需重启项时应提示需重启"
     (let [temp-file (doto (java.io.File/createTempFile "config" ".edn") (.deleteOnExit))
@@ -168,7 +179,6 @@
           _ (api/set-config-path! (.getAbsolutePath temp-file))
           server (api/start-api-server port)]
       (try
-        (Thread/sleep 200)
         (let [{:keys [status body]} @(http/put (str "http://localhost:" port "/config")
                                                {:body (pr-str {:port 9003})
                                                 :headers {"Content-Type" "application/edn"}})
@@ -179,8 +189,7 @@
           (is (:restart-required? parsed) "修改端口应提示需重启"))
         (finally
           (api/stop-api-server server)
-          (Thread/sleep 200))))))
-
+          )))))
 (deftest api-put-config-no-restart-for-target-host
   (testing "PUT /config 仅修改热更新项时不应提示需重启"
     (let [temp-file (doto (java.io.File/createTempFile "config" ".edn") (.deleteOnExit))
@@ -189,7 +198,6 @@
           _ (api/set-config-path! (.getAbsolutePath temp-file))
           server (api/start-api-server port)]
       (try
-        (Thread/sleep 200)
         (let [{:keys [status body]} @(http/put (str "http://localhost:" port "/config")
                                                {:body (pr-str {:target-host "192.168.1.100"})
                                                 :headers {"Content-Type" "application/edn"}})
@@ -200,8 +208,7 @@
           (is (not (:restart-required? parsed)) "修改 target-host 不应提示需重启"))
         (finally
           (api/stop-api-server server)
-          (Thread/sleep 200))))))
-
+          )))))
 (deftest api-put-config-no-restart-for-same-value
   (testing "PUT /config 发送与现有值相同的需重启项时不应提示需重启"
     (let [temp-file (doto (java.io.File/createTempFile "config" ".edn") (.deleteOnExit))
@@ -210,7 +217,6 @@
           _ (api/set-config-path! (.getAbsolutePath temp-file))
           server (api/start-api-server port)]
       (try
-        (Thread/sleep 200)
         (let [{:keys [status body]} @(http/put (str "http://localhost:" port "/config")
                                                {:body (pr-str {:port 9002})
                                                 :headers {"Content-Type" "application/edn"}})
@@ -221,8 +227,7 @@
           (is (not (:restart-required? parsed)) "发送相同端口值不应提示需重启"))
         (finally
           (api/stop-api-server server)
-          (Thread/sleep 200))))))
-
+          )))))
 (deftest api-logs-recent-returns-log-entries
   (testing "GET /logs/recent 应返回最近日志条目"
     (log/clear-logs!)
@@ -231,7 +236,6 @@
     (let [port (random-port)
           server (api/start-api-server port)]
       (try
-        (Thread/sleep 200)
         (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/logs/recent"))
               body-str (slurp body)
               parsed (clojure.edn/read-string body-str)]
@@ -245,8 +249,7 @@
           (is (contains? (first parsed) :time)))
         (finally
           (api/stop-api-server server)
-          (Thread/sleep 200))))))
-
+          )))))
 (deftest api-logs-recent-respects-limit
   (testing "GET /logs/recent 应限制返回数量"
     (log/clear-logs!)
@@ -255,7 +258,6 @@
     (let [port (random-port)
           server (api/start-api-server port)]
       (try
-        (Thread/sleep 200)
         (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/logs/recent"))
               body-str (slurp body)
               parsed (clojure.edn/read-string body-str)]
@@ -263,14 +265,12 @@
           (is (= 100 (count parsed)) "默认最多返回 100 条"))
         (finally
           (api/stop-api-server server)
-          (Thread/sleep 200))))))
-
+          )))))
 (deftest api-transfers-list-returns-empty
   (testing "GET /transfers 应返回空列表（预留接口）"
     (let [port (random-port)
           server (api/start-api-server port)]
       (try
-        (Thread/sleep 200)
         (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/transfers"))
               body-str (slurp body)
               parsed (clojure.edn/read-string body-str)]
@@ -279,61 +279,52 @@
           (is (empty? parsed)))
         (finally
           (api/stop-api-server server)
-          (Thread/sleep 200))))))
-
+          )))))
 (deftest api-transfer-detail-not-found
   (testing "GET /transfers/:id 未找到时应返回 404（预留接口）"
     (let [port (random-port)
           server (api/start-api-server port)]
       (try
-        (Thread/sleep 200)
         (let [{:keys [status body]} @(http/get (str "http://localhost:" port "/transfers/" (java.util.UUID/randomUUID)))]
           (is (= 404 status))
           (is (= "Not Found" (if (string? body) body (slurp body)))))
         (finally
           (api/stop-api-server server)
-          (Thread/sleep 200))))))
-
+          )))))
 (deftest api-transfer-cancel-not-found
   (testing "POST /transfers/:id/cancel 未找到时应返回 404（预留接口）"
     (let [port (random-port)
           server (api/start-api-server port)]
       (try
-        (Thread/sleep 200)
         (let [{:keys [status body]} @(http/post (str "http://localhost:" port "/transfers/" (java.util.UUID/randomUUID) "/cancel"))]
           (is (= 404 status))
           (is (= "Not Found" (if (string? body) body (slurp body)))))
         (finally
           (api/stop-api-server server)
-          (Thread/sleep 200))))))
-
+          )))))
 (deftest api-cors-headers-present
   (testing "OPTIONS 预检请求应返回 204 并带 CORS 头"
     (let [port (random-port)
           server (api/start-api-server port)]
       (try
-        (Thread/sleep 200)
         (let [{:keys [status headers]} @(http/options (str "http://localhost:" port "/status"))]
           (is (= 204 status))
-          (is (= "*" (:access-control-allow-origin headers)))
+          (is (= "http://localhost" (:access-control-allow-origin headers)))
           (is (string? (:access-control-allow-methods headers))))
         (finally
           (api/stop-api-server server)
-          (Thread/sleep 200))))))
-
+          )))))
 (deftest api-get-includes-cors-headers
   (testing "GET 响应应包含 CORS 头"
     (let [port (random-port)
           server (api/start-api-server port)]
       (try
-        (Thread/sleep 200)
         (let [{:keys [status headers]} @(http/get (str "http://localhost:" port "/status"))]
           (is (= 200 status))
-          (is (= "*" (:access-control-allow-origin headers))))
+          (is (= "http://localhost" (:access-control-allow-origin headers))))
         (finally
           (api/stop-api-server server)
-          (Thread/sleep 200))))))
-
+          )))))
 (deftest api-put-config-device-name-no-restart
   (testing "PUT /config 修改 device-name 时不应提示需重启"
     (let [temp-file (doto (java.io.File/createTempFile "config" ".edn") (.deleteOnExit))
@@ -342,7 +333,6 @@
           _ (api/set-config-path! (.getAbsolutePath temp-file))
           server (api/start-api-server port)]
       (try
-        (Thread/sleep 200)
         (let [{:keys [status body]} @(http/put (str "http://localhost:" port "/config")
                                                {:body (pr-str {:device-name "My-MacBook"})
                                                 :headers {"Content-Type" "application/edn"}})
@@ -355,4 +345,63 @@
             (is (= "My-MacBook" (:device-name saved)))))
         (finally
           (api/stop-api-server server)
-          (Thread/sleep 200))))))
+          )))))
+(deftest api-put-config-rejects-unknown-keys
+  (testing "PUT /config 应拒绝未知配置键"
+    (let [temp-file (doto (java.io.File/createTempFile "config" ".edn") (.deleteOnExit))
+          _ (spit temp-file (pr-str {:port 9002 :target-host "localhost"}))
+          port (random-port)
+          _ (api/set-config-path! (.getAbsolutePath temp-file))
+          server (api/start-api-server port)]
+      (try
+        (let [{:keys [status body]} @(http/put (str "http://localhost:" port "/config")
+                                               {:body (pr-str {:unknown-key "value"})
+                                                :headers {"Content-Type" "application/edn"}})
+              body-str (if (string? body) body (slurp body))
+              parsed (clojure.edn/read-string body-str)]
+          (is (= 400 status) "未知 key 应返回 400")
+          (is (= :unknown-keys (:error parsed)) "错误类型应为 unknown-keys")
+          (let [saved (clojure.edn/read-string (slurp temp-file))]
+            (is (not (contains? saved :unknown-key)) "未知 key 不应被写入配置")))
+        (finally
+          (api/stop-api-server server)
+          )))))
+(deftest api-put-config-rejects-invalid-port
+  (testing "PUT /config 应拒绝非法端口值"
+    (let [temp-file (doto (java.io.File/createTempFile "config" ".edn") (.deleteOnExit))
+          _ (spit temp-file (pr-str {:port 9002 :target-host "localhost"}))
+          port (random-port)
+          _ (api/set-config-path! (.getAbsolutePath temp-file))
+          server (api/start-api-server port)]
+      (try
+        (let [{:keys [status body]} @(http/put (str "http://localhost:" port "/config")
+                                               {:body (pr-str {:port "not-a-number"})
+                                                :headers {"Content-Type" "application/edn"}})
+              body-str (if (string? body) body (slurp body))
+              parsed (clojure.edn/read-string body-str)]
+          (is (= 400 status) "非法端口应返回 400")
+          (is (= :invalid-port (:error parsed)) "错误类型应为 invalid-port")
+          (let [saved (clojure.edn/read-string (slurp temp-file))]
+            (is (= 9002 (:port saved)) "原有端口不应被覆盖")))
+        (finally
+          (api/stop-api-server server)
+          )))))
+(deftest api-put-config-rejects-body-too-large
+  (testing "PUT /config 应拒绝过大的请求体"
+    (let [temp-file (doto (java.io.File/createTempFile "config" ".edn") (.deleteOnExit))
+          _ (spit temp-file (pr-str {:port 9002 :target-host "localhost"}))
+          port (random-port)
+          _ (api/set-config-path! (.getAbsolutePath temp-file))
+          server (api/start-api-server port)]
+      (try
+        (let [huge-body (pr-str {:device-name (apply str (repeat 70000 "x"))})
+              {:keys [status body]} @(http/put (str "http://localhost:" port "/config")
+                                               {:body huge-body
+                                                :headers {"Content-Type" "application/edn"}})
+              body-str (if (string? body) body (slurp body))
+              parsed (clojure.edn/read-string body-str)]
+          (is (= 413 status) "过大请求体应返回 413")
+          (is (= :body-too-large (:error parsed)) "错误类型应为 body-too-large"))
+        (finally
+          (api/stop-api-server server)
+          )))))

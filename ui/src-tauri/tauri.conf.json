@@ -32,6 +32,19 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "resources": {
+      "../../target/lan-clip-1.0-standalone.jar": "lan-clip-1.0-standalone.jar"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "dialog": true,
+      "endpoints": [
+        "https://github.com/lhing17/lan-clip/releases/latest/download/latest.json"
+      ],
+      "pubkey": "3lj1Q6tWNklflJR+dS4vdt4i5DbxL6I6KdjNGiaF/mU="
+    }
   }
 }

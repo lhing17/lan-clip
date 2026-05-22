@@ -39,7 +39,8 @@
                :level level
                :msg msg}
         line (str "[" (name level) "] " msg)]
-    (println line)
+    (locking *out*
+      (println line))
     (swap! log-buffer
            #(let [v (conj % entry)]
               (if (> (count v) max-log-entries)

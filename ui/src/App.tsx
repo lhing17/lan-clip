@@ -9,8 +9,17 @@ import {
   stopSync,
   saveConfig,
   fetchRecentLogs,
+  fetchHistory,
+  fetchPeers,
+  initiatePairing,
+  enableAutostart,
+  disableAutostart,
+  getAutostartStatus,
+  checkForUpdate,
   type SidecarConfig,
   type LogEntry,
+  type HistoryEntry,
+  type Peer,
 } from "./api";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { notifyError } from "./notifications";
@@ -21,10 +30,11 @@ interface AppState {
   syncRunning: boolean;
   nodeId: string | null;
   listenPort: number | null;
+  peerCount: number | null;
   error: string | null;
 }
 
-type Tab = "status" | "config" | "logs" | "about";
+type Tab = "status" | "config" | "history" | "logs" | "about";
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>("status");
@@ -33,6 +43,7 @@ function App() {
     syncRunning: false,
     nodeId: null,
     listenPort: null,
+    peerCount: null,
     error: null,
   });
   const [loading, setLoading] = useState(false);
@@ -52,6 +63,7 @@ function App() {
           syncRunning: status?.running ?? false,
           nodeId: status?.nodeId ?? config?.nodeId ?? null,
           listenPort: config?.port ?? null,
+          peerCount: status?.peerCount ?? null,
         }));
       } else {
         setState((prev) => ({
@@ -59,6 +71,7 @@ function App() {
           syncRunning: false,
           nodeId: null,
           listenPort: null,
+          peerCount: null,
         }));
       }
     } catch (e) {
@@ -152,6 +165,12 @@ function App() {
           配置
         </button>
         <button
+          className={activeTab === "history" ? "tab-active" : "tab"}
+          onClick={() => setActiveTab("history")}
+        >
+          历史
+        </button>
+        <button
           className={activeTab === "logs" ? "tab-active" : "tab"}
           onClick={() => setActiveTab("logs")}
         >
@@ -205,6 +224,12 @@ function App() {
                   {state.listenPort ?? "—"}
                 </span>
               </div>
+              <div className="status-row">
+                <span className="status-label">活跃 peers</span>
+                <span className="status-value">
+                  {state.peerCount !== null ? `${state.peerCount} 个` : "—"}
+                </span>
+              </div>
               <button
                 className="toggle-btn"
                 onClick={toggleSync}
@@ -217,6 +242,7 @@ function App() {
         </>
       )}
       {activeTab === "config" && <ConfigPage />}
+      {activeTab === "history" && <HistoryPage />}
       {activeTab === "logs" && <LogsPage />}
       {activeTab === "about" && <AboutPage />}
     </main>
@@ -227,12 +253,52 @@ function ConfigPage() {
   const [config, setConfig] = useState<SidecarConfig>({});
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [autostart, setAutostart] = useState<boolean | null>(null);
+  const [peers, setPeers] = useState<Peer[]>([]);
+  const [peersLoading, setPeersLoading] = useState(false);
+  const [pairingNodeId, setPairingNodeId] = useState<string | null>(null);
+  const [pairMsg, setPairMsg] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSidecarConfig()
       .then((cfg) => setConfig(cfg))
       .catch(() => setConfig({}));
+    getAutostartStatus()
+      .then((enabled) => setAutostart(enabled))
+      .catch(() => setAutostart(false));
   }, []);
+
+  const refreshPeers = useCallback(async () => {
+    setPeersLoading(true);
+    try {
+      const list = await fetchPeers();
+      setPeers(list);
+    } catch (e) {
+      setPeers([]);
+    } finally {
+      setPeersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshPeers();
+    const id = setInterval(refreshPeers, 5000);
+    return () => clearInterval(id);
+  }, [refreshPeers]);
+
+  async function toggleAutostart() {
+    try {
+      if (autostart) {
+        await disableAutostart();
+        setAutostart(false);
+      } else {
+        await enableAutostart();
+        setAutostart(true);
+      }
+    } catch (e) {
+      setSaveMsg("自启动设置失败：" + (e instanceof Error ? e.message : String(e)));
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -265,10 +331,43 @@ function ConfigPage() {
     setConfig((prev) => ({ ...prev, [key]: value }));
   }
 
+  function selectPeer(peer: Peer) {
+    setConfig((prev) => ({
+      ...prev,
+      targetHost: peer.host ?? prev.targetHost,
+      targetPort: peer.port ?? prev.targetPort,
+    }));
+  }
+
+  async function pairWith(peer: Peer) {
+    if (!peer.nodeId) return;
+    setPairingNodeId(peer.nodeId);
+    setPairMsg(null);
+    try {
+      const result = await initiatePairing(peer.nodeId);
+      if (result.success) {
+        setPairMsg(`已与 ${peer.deviceName || "设备"} 配对成功，共享密钥已更新。`);
+        setConfig((prev) => ({
+          ...prev,
+          targetHost: peer.host ?? prev.targetHost,
+          targetPort: peer.port ?? prev.targetPort,
+          secretKey: result.secretKey ?? prev.secretKey,
+        }));
+      } else {
+        setPairMsg(`配对失败：${result.reason ?? "未知错误"}`);
+      }
+    } catch (e) {
+      setPairMsg("配对失败：" + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setPairingNodeId(null);
+    }
+  }
+
   return (
     <section className="card">
       <h2>应用配置</h2>
       {saveMsg && <div className="info-banner">{saveMsg}</div>}
+      {pairMsg && <div className="info-banner">{pairMsg}</div>}
       <form onSubmit={handleSubmit} className="config-form">
         <label>
           <span>设备名</span>
@@ -306,6 +405,50 @@ function ConfigPage() {
             placeholder="9002"
           />
         </label>
+        <div className="peer-discovery">
+          <div className="peer-header">
+            <span>已发现设备</span>
+            <button
+              type="button"
+              className="toggle-btn small"
+              onClick={refreshPeers}
+              disabled={peersLoading}
+            >
+              {peersLoading ? "刷新中..." : "刷新"}
+            </button>
+          </div>
+          {peers.length === 0 ? (
+            <p className="empty-peers">未发现局域网设备</p>
+          ) : (
+            <ul className="peer-list">
+              {peers.map((p) => (
+                <li key={p.nodeId} className="peer-item">
+                  <button
+                    type="button"
+                    className="peer-select-btn"
+                    onClick={() => selectPeer(p)}
+                    title="点击设为同步目标"
+                  >
+                    <span className="peer-name">
+                      {p.deviceName || "未命名设备"}
+                    </span>
+                    <span className="peer-meta">
+                      {p.host}:{p.port}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="toggle-btn small pair-btn"
+                    onClick={() => pairWith(p)}
+                    disabled={pairingNodeId === p.nodeId}
+                  >
+                    {pairingNodeId === p.nodeId ? "配对中..." : "配对"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         <label>
           <span>共享密钥</span>
           <input
@@ -342,6 +485,15 @@ function ConfigPage() {
             placeholder="~/.lan-clip/received-files"
           />
         </label>
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={autostart ?? false}
+            onChange={toggleAutostart}
+            disabled={autostart === null}
+          />
+          <span>开机自启动</span>
+        </label>
         <button type="submit" className="toggle-btn" disabled={saving}>
           {saving ? "保存中..." : "保存配置"}
         </button>
@@ -350,14 +502,127 @@ function ConfigPage() {
   );
 }
 
+function HistoryPage() {
+  const [entries, setEntries] = useState<HistoryEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const refreshHistory = useCallback(async () => {
+    setLoading(true);
+    try {
+      const items = await fetchHistory(50);
+      setEntries(items);
+    } catch (e) {
+      setEntries([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshHistory();
+  }, [refreshHistory]);
+
+  function formatDirection(dir: string) {
+    return dir === "send" ? "发送" : dir === "receive" ? "接收" : dir;
+  }
+
+  function formatType(type: string) {
+    return (
+      { text: "文本", image: "图片", "file-list": "文件" }[type] ?? type
+    );
+  }
+
+  function formatSize(type: string, size: number) {
+    if (type === "text") return `${size} 字符`;
+    if (type === "image") return `${(size / 1024).toFixed(1)} KB`;
+    if (type === "file-list") return `${size} 个文件`;
+    return String(size);
+  }
+
+  return (
+    <section className="card">
+      <h2>传输历史</h2>
+      <div className="logs-toolbar">
+        <button className="toggle-btn" onClick={refreshHistory} disabled={loading}>
+          {loading ? "刷新中..." : "刷新"}
+        </button>
+      </div>
+
+      {entries.length === 0 ? (
+        <p className="empty-logs">暂无传输记录</p>
+      ) : (
+        <ul className="log-list">
+          {entries.map((h, i) => (
+            <li key={`hist-${i}`} className="log-item">
+              <span className="log-time">
+                {h.timestamp
+                  ? new Date(h.timestamp).toLocaleTimeString("zh-CN")
+                  : "—"}
+              </span>
+              <span
+                className="log-level"
+                style={{
+                  background:
+                    h.direction === "send"
+                      ? "#c8e6c9"
+                      : h.direction === "receive"
+                        ? "#bbdefb"
+                        : "#e3e3e3",
+                  color:
+                    h.direction === "send"
+                      ? "#2e7d32"
+                      : h.direction === "receive"
+                        ? "#1565c0"
+                        : "#333",
+                }}
+              >
+                {formatDirection(h.direction ?? "")}
+              </span>
+              <span className="log-msg">
+                {formatType(h.type ?? "")}
+                {" · "}
+                {formatSize(h.type ?? "", h.size ?? 0)}
+                {h.peer ? ` · ${h.peer}` : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function AboutPage() {
   const [version, setVersion] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<{ version: string; body?: string } | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [upToDate, setUpToDate] = useState(false);
 
   useEffect(() => {
     getVersion()
       .then((v) => setVersion(v))
       .catch(() => setVersion(null));
   }, []);
+
+  async function handleCheckUpdate() {
+    setChecking(true);
+    setUpdateInfo(null);
+    setUpdateError(null);
+    setUpToDate(false);
+    try {
+      const update = await checkForUpdate();
+      if (update) {
+        setUpdateInfo({ version: update.version, body: update.body });
+      } else {
+        setUpToDate(true);
+      }
+    } catch (e) {
+      setUpdateError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setChecking(false);
+    }
+  }
 
   return (
     <section className="card">
@@ -370,13 +635,34 @@ function AboutPage() {
         <span className="status-label">协议版本</span>
         <span className="status-value">1</span>
       </div>
+
+      {updateError && (
+        <div className="error-banner" style={{ marginTop: "0.75rem" }}>
+          检查更新失败：{updateError}
+        </div>
+      )}
+      {upToDate && (
+        <div className="info-banner" style={{ marginTop: "0.75rem" }}>
+          当前已是最新版本
+        </div>
+      )}
+      {updateInfo && (
+        <div className="info-banner" style={{ marginTop: "0.75rem" }}>
+          <strong>发现新版本 {updateInfo.version}</strong>
+          {updateInfo.body && (
+            <pre style={{ margin: "0.5rem 0 0", whiteSpace: "pre-wrap", fontSize: "0.85rem" }}>
+              {updateInfo.body}
+            </pre>
+          )}
+        </div>
+      )}
+
       <button
         className="toggle-btn"
-        onClick={() => {
-          alert("检查更新功能即将推出");
-        }}
+        onClick={handleCheckUpdate}
+        disabled={checking}
       >
-        检查更新
+        {checking ? "检查中..." : "检查更新"}
       </button>
     </section>
   );

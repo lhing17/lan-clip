@@ -17,7 +17,7 @@
   :mirrors {"clojars" {:name "ustc"
                        :url "https://mirrors.tuna.tsinghua.edu.cn/clojars"}}
 
-  :prep-tasks [["compile" "lan-clip.socket.content"] "javac" "compile"]
+  :prep-tasks ["javac" "compile"]
   :jvm-opts ["-server"]
   :main lan-clip.core
   :profiles {:uberjar {:omit-source true

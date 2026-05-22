@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { parseEDNString, toEDNStringFromSimpleObject } from "edn-data";
 
 const SIDECAR_PORT = 9615;
 
@@ -11,6 +12,7 @@ export interface SidecarStatus {
   version?: string;
   protocolVersion?: number;
   nodeId?: string;
+  peerCount?: number;
   config?: {
     port?: number;
     targetHost?: string;
@@ -43,32 +45,99 @@ export interface LogEntry {
   msg?: string;
 }
 
+export interface HistoryEntry {
+  timestamp?: string;
+  direction?: string;
+  type?: string;
+  size?: number;
+  peer?: string;
+}
+
+export interface Peer {
+  nodeId?: string;
+  deviceName?: string;
+  host?: string;
+  port?: number;
+  version?: number;
+}
+
+function kebabToCamel(s: string): string {
+  const base = s.replace(/\?$/, "");
+  return base.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+}
+
+function camelToKebab(s: string): string {
+  return s.replace(/[A-Z]/g, (ch) => "-" + ch.toLowerCase());
+}
+
+function isUuidObj(value: unknown): value is { tag: "uuid"; val: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "tag" in value &&
+    (value as { tag: unknown }).tag === "uuid" &&
+    "val" in value
+  );
+}
+
+function convertKeys(obj: unknown): unknown {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) return obj.map(convertKeys);
+  if (typeof obj === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      let value = convertKeys(v);
+      if (isUuidObj(value)) {
+        value = value.val;
+      }
+      result[kebabToCamel(k)] = value;
+    }
+    return result;
+  }
+  return obj;
+}
+
+function parseEdnResponse(text: string): unknown {
+  const parsed = parseEDNString(text, { mapAs: "object", keywordAs: "string" });
+  return convertKeys(parsed);
+}
+
+function configToEdn(cfg: Partial<SidecarConfig>): string {
+  const entries: Record<string, string | number | boolean> = {};
+  for (const [k, v] of Object.entries(cfg)) {
+    if (v !== undefined && v !== null) {
+      entries[camelToKebab(k)] = v as string | number | boolean;
+    }
+  }
+  return toEDNStringFromSimpleObject(entries);
+}
+
 export async function fetchSidecarStatus(): Promise<SidecarStatus> {
   const res = await fetch(sidecarUrl("/status"));
   if (!res.ok) throw new Error(`Status ${res.status}`);
   const text = await res.text();
-  return parseEdnLike(text);
+  return parseEdnResponse(text) as SidecarStatus;
 }
 
 export async function fetchSidecarConfig(): Promise<SidecarConfig> {
   const res = await fetch(sidecarUrl("/config"));
   if (!res.ok) throw new Error(`Status ${res.status}`);
   const text = await res.text();
-  return parseEdnLike(text);
+  return parseEdnResponse(text) as SidecarConfig;
 }
 
 export async function startSync(): Promise<SidecarStatus> {
   const res = await fetch(sidecarUrl("/sync/start"), { method: "POST" });
   if (!res.ok) throw new Error(`Status ${res.status}`);
   const text = await res.text();
-  return parseEdnLike(text);
+  return parseEdnResponse(text) as SidecarStatus;
 }
 
 export async function stopSync(): Promise<SidecarStatus> {
   const res = await fetch(sidecarUrl("/sync/stop"), { method: "POST" });
   if (!res.ok) throw new Error(`Status ${res.status}`);
   const text = await res.text();
-  return parseEdnLike(text);
+  return parseEdnResponse(text) as SidecarStatus;
 }
 
 export async function startSidecar(): Promise<boolean> {
@@ -87,25 +156,6 @@ export async function getSidecarPort(): Promise<number> {
   return invoke("sidecar_port");
 }
 
-function camelToKebab(s: string): string {
-  return s.replace(/[A-Z]/g, (ch) => "-" + ch.toLowerCase());
-}
-
-function toEdnValue(value: unknown): string {
-  if (value === null || value === undefined) return "nil";
-  if (typeof value === "boolean") return value ? "true" : "false";
-  if (typeof value === "number") return String(value);
-  if (typeof value === "string") return JSON.stringify(value);
-  return String(value);
-}
-
-function configToEdn(cfg: Partial<SidecarConfig>): string {
-  const entries = Object.entries(cfg)
-    .filter(([, v]) => v !== undefined)
-    .map(([k, v]) => `:${camelToKebab(k)} ${toEdnValue(v)}`);
-  return "{" + entries.join(" ") + "}";
-}
-
 export async function saveConfig(
   cfg: Partial<SidecarConfig>
 ): Promise<SaveConfigResult> {
@@ -116,73 +166,84 @@ export async function saveConfig(
   });
   if (!res.ok) throw new Error(`Status ${res.status}`);
   const text = await res.text();
-  return parseEdnLike(text) as SaveConfigResult;
+  return parseEdnResponse(text) as SaveConfigResult;
+}
+
+import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
+import { check, type Update } from "@tauri-apps/plugin-updater";
+
+export async function enableAutostart(): Promise<void> {
+  await enable();
+}
+
+export async function disableAutostart(): Promise<void> {
+  await disable();
+}
+
+export async function getAutostartStatus(): Promise<boolean> {
+  return isEnabled();
+}
+
+export async function checkForUpdate(): Promise<Update | null> {
+  return check();
 }
 
 export async function fetchRecentLogs(): Promise<LogEntry[]> {
   const res = await fetch(sidecarUrl("/logs/recent"));
   if (!res.ok) throw new Error(`Status ${res.status}`);
   const text = await res.text();
-  return parseEdnVector(text).map((m) => ({
-    time: String(m.time ?? ""),
-    level: String(m.level ?? ""),
-    msg: String(m.msg ?? ""),
+  const parsed = parseEdnResponse(text);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.map((m) => ({
+    time: String((m as Record<string, unknown>).time ?? ""),
+    level: String((m as Record<string, unknown>).level ?? ""),
+    msg: String((m as Record<string, unknown>).msg ?? ""),
   }));
 }
 
-function parseEdnLike(text: string): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  const cleaned = text
-    .replace(/#inst\s+("[^"]*")/g, "$1")
-    .replace(/[{}]/g, "");
-  const tokens = cleaned.split(/\s+/).filter(Boolean);
-  for (let i = 0; i < tokens.length; i += 2) {
-    const key = tokens[i]?.replace(/^:/, "");
-    const raw = tokens[i + 1];
-    if (key && raw !== undefined) {
-      result[kebabToCamel(key)] = parseValue(raw);
-    }
-  }
-  return result;
+export async function fetchHistory(limit = 20): Promise<HistoryEntry[]> {
+  const res = await fetch(sidecarUrl(`/history/recent?limit=${limit}`));
+  if (!res.ok) throw new Error(`Status ${res.status}`);
+  const text = await res.text();
+  const parsed = parseEdnResponse(text);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.map((m) => ({
+    timestamp: String((m as Record<string, unknown>).timestamp ?? ""),
+    direction: String((m as Record<string, unknown>).direction ?? ""),
+    type: String((m as Record<string, unknown>).type ?? ""),
+    size: Number((m as Record<string, unknown>).size ?? 0),
+    peer: String((m as Record<string, unknown>).peer ?? ""),
+  }));
 }
 
-function parseEdnVector(text: string): Record<string, unknown>[] {
-  text = text.trim();
-  if (!text.startsWith("[") || !text.endsWith("]")) return [];
-  const inner = text.slice(1, -1).trim();
-  if (!inner) return [];
-
-  const entries: string[] = [];
-  let depth = 0;
-  let current = "";
-
-  for (const char of inner) {
-    if (char === "{") {
-      if (depth === 0) current = "";
-      depth++;
-    }
-    current += char;
-    if (char === "}") {
-      depth--;
-      if (depth === 0) {
-        entries.push(current);
-        current = "";
-      }
-    }
-  }
-  return entries.map(parseEdnLike);
+export async function fetchPeers(): Promise<Peer[]> {
+  const res = await fetch(sidecarUrl("/peers"));
+  if (!res.ok) throw new Error(`Status ${res.status}`);
+  const text = await res.text();
+  const parsed = parseEdnResponse(text);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.map((m) => ({
+    nodeId: String((m as Record<string, unknown>).nodeId ?? ""),
+    deviceName: String((m as Record<string, unknown>).deviceName ?? ""),
+    host: String((m as Record<string, unknown>).host ?? ""),
+    port: Number((m as Record<string, unknown>).port ?? 0),
+    version: Number((m as Record<string, unknown>).version ?? 1),
+  }));
 }
 
-function kebabToCamel(s: string): string {
-  const base = s.replace(/\?$/, "");
-  return base.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+export interface PairResult {
+  success?: boolean;
+  reason?: string;
+  secretKey?: string;
 }
 
-function parseValue(raw: string): unknown {
-  if (raw === "true") return true;
-  if (raw === "false") return false;
-  if (raw === "nil") return null;
-  if (/^\d+$/.test(raw)) return parseInt(raw, 10);
-  if (/^#[a-f0-9-]+$/i.test(raw)) return raw;
-  return raw.replace(/^:/, "").replace(/^"/, "").replace(/"$/, "");
+export async function initiatePairing(nodeId: string): Promise<PairResult> {
+  const res = await fetch(sidecarUrl("/pair"), {
+    method: "POST",
+    headers: { "Content-Type": "application/edn" },
+    body: `{:node-id #uuid "${nodeId}"}`,
+  });
+  if (!res.ok) throw new Error(`Status ${res.status}`);
+  const text = await res.text();
+  return parseEdnResponse(text) as PairResult;
 }

@@ -1,6 +1,7 @@
 (ns lan-clip.socket.client
   (:gen-class)
-  (:require [lan-clip.socket.protocol-codec :as codec])
+  (:require [lan-clip.log :as log]
+            [lan-clip.socket.protocol-codec :as codec])
   (:import (io.netty.channel.nio NioEventLoopGroup)
            (io.netty.bootstrap Bootstrap)
            (io.netty.channel ChannelFuture ChannelOption ChannelInitializer ChannelHandler ChannelInboundHandlerAdapter)
@@ -25,7 +26,7 @@
           (.writeAndFlush ctx content)))
 
       (exceptionCaught [ctx cause]
-        (.printStackTrace cause)
+        (log/log! :error (str cause))
         (.close ctx))))
 
 (defn get-handlers [content secret-key node-id]
@@ -57,3 +58,30 @@
           (-> f (.channel) (.closeFuture) (.sync)))
         (finally
           (.shutdownGracefully worker-group))))))
+
+(defn run-with-retry
+  "带重试执行 client/run。连接或发送失败时自动重试，成功立即返回。
+  retry-count: 最大尝试次数（含首次），默认 3
+  retry-delay-ms: 每次重试间隔毫秒，默认 1000
+  最终失败时抛出最后一次捕获的异常。"
+  ([client]
+   (run-with-retry client 3 1000))
+  ([client retry-count retry-delay-ms]
+   (loop [attempt 1]
+     (let [result (try
+                    (run client)
+                    ::success
+                    (catch InterruptedException e
+                      (throw e))
+                    (catch Exception e
+                      e))]
+       (if (= ::success result)
+         ::success
+         (if (< attempt retry-count)
+           (do
+             (log/log! :warn (str "发送失败（第" attempt "/" retry-count "次），" retry-delay-ms "ms 后重试"))
+             (Thread/sleep retry-delay-ms)
+             (recur (inc attempt)))
+           (do
+             (log/log! :error (str "发送失败，已放弃（共" retry-count "次）：" (.getMessage ^Exception result)))
+             (throw result))))))))

@@ -12,16 +12,6 @@
            (clojure.lang Seqable)
            (java.awt.datatransfer Transferable DataFlavor)))
 
-(defn set-interval
-  "每隔固定时间间隔做某个动作，类似于js中的setInterval"
-  [interval callback]
-  (future
-    (while true
-      (try
-        (Thread/sleep interval)
-        (callback)
-        (catch Exception e (.printStackTrace e))))))
-
 (defn- ^ImageObserver image-observer
   "构造ImageObserver，用于转换Image"
   [^ReentrantLock lock ^Condition size? ^Condition data?]

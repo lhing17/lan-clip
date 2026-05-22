@@ -6,6 +6,8 @@
             [lan-clip.app :as app]
             [lan-clip.config :as config]
             [lan-clip.core :as core]
+            [lan-clip.discovery :as discovery]
+            [lan-clip.history :as history]
             [lan-clip.log :as log]))
 
 (def ^:private config-path-atom
@@ -25,22 +27,64 @@
     (cond-> (merge st
                    {:version app-version
                     :protocol-version protocol-version})
-      (:running? st) (assoc :node-id (get-in st [:config :node-id])))))
+      (:running? st) (assoc :node-id (get-in st [:config :node-id])
+                            :peer-count (count (discovery/recent-peers
+                                                 (app/current-discovery-registry)
+                                                 (get-in st [:config :node-id])))))))
+
+(def ^:private sensitive-keys
+  "需要过滤的敏感配置字段集合。"
+  #{:secret-key :log-file :received-files-dir})
 
 (defn- safe-config
   "返回不含敏感字段的配置 map。"
   [cfg]
-  (dissoc cfg :secret-key))
+  (apply dissoc cfg sensitive-keys))
 
-(def ^:private cors-headers
-  {"Access-Control-Allow-Origin" "*"
-   "Access-Control-Allow-Methods" "GET, POST, PUT, OPTIONS"
-   "Access-Control-Allow-Headers" "Content-Type"})
+(def ^:private allowed-origins
+  "允许的 CORS 来源集合。"
+  #{"http://localhost" "tauri://localhost"})
+
+(def ^:private allowed-config-keys
+  "允许通过 PUT /config 修改的配置键集合。"
+  (set (concat (keys config/default-config) [:node-id])))
+
+(def ^:private max-config-body-size 65536)
+
+(defn- validate-config-updates [updates]
+  "校验配置更新：拒绝未知 key 和类型错误的值。校验通过返回 updates，否则抛 ex-info。"
+  (let [unknown-keys (remove allowed-config-keys (keys updates))]
+    (when (seq unknown-keys)
+      (throw (ex-info "Unknown config keys"
+                      {:cause :unknown-keys :keys (vec unknown-keys)}))))
+  (doseq [[k v] updates]
+    (case k
+      (:port :target-port)
+      (when-not (config/valid-port? v)
+        (throw (ex-info "Invalid port" {:cause :invalid-port :key k :value v})))
+      (:file-size :interval :max-frame-size)
+      (when-not (and (integer? v) (pos? v))
+        (throw (ex-info "Invalid positive integer"
+                        {:cause :invalid-value :key k :value v})))
+      (:secret-key :target-host :device-name :received-files-dir :log-file)
+      (when-not (string? v)
+        (throw (ex-info "Invalid string value"
+                        {:cause :invalid-value :key k :value v})))
+      :node-id
+      (when-not (instance? java.util.UUID v)
+        (throw (ex-info "Invalid UUID" {:cause :invalid-value :key :node-id :value v})))
+      nil))
+  updates)
 
 (defn- with-cors
-  "为响应 map 添加 CORS 头。"
-  [response]
-  (update response :headers merge cors-headers))
+  "为响应 map 添加 CORS 头，根据请求的 Origin 动态设置 Allow-Origin。"
+  [req response]
+  (let [origin (get-in req [:headers "origin"])
+        allowed-origin (if (allowed-origins origin) origin "http://localhost")]
+    (update response :headers merge
+            {"Access-Control-Allow-Origin" allowed-origin
+             "Access-Control-Allow-Methods" "GET, POST, PUT, OPTIONS"
+             "Access-Control-Allow-Headers" "Content-Type"})))
 
 (defn- handler* [req]
   (case [(:request-method req) (:uri req)]
@@ -57,20 +101,33 @@
        :body (pr-str (safe-config cfg))})
 
     [:put "/config"]
-    (let [body-str (slurp (:body req))
-          updates (edn/read-string body-str)
-          current (or (config/load-config @config-path-atom)
-                      (config/load-config nil))
-          merged (merge current updates)
-          restart-required? (some (fn [k]
-                                    (and (contains? updates k)
-                                         (not= (get current k) (get updates k))))
-                                  config/restart-required-keys)]
-      (config/save-config! @config-path-atom merged)
-      {:status 200
-       :headers {"Content-Type" "application/edn"}
-       :body (pr-str {:success? true
-                      :restart-required? (boolean restart-required?)})})
+    (let [body-str (slurp (:body req))]
+      (if (> (count body-str) max-config-body-size)
+        {:status 413
+         :headers {"Content-Type" "application/edn"}
+         :body (pr-str {:error :body-too-large :max max-config-body-size})}
+        (try
+          (let [updates (edn/read-string body-str)
+                _ (validate-config-updates updates)
+                current (or (config/load-config @config-path-atom)
+                            (config/load-config nil))
+                merged (merge current updates)
+                restart-required? (some (fn [k]
+                                          (and (contains? updates k)
+                                               (not= (get current k) (get updates k))))
+                                        config/restart-required-keys)]
+            (config/save-config! @config-path-atom merged)
+            {:status 200
+             :headers {"Content-Type" "application/edn"}
+             :body (pr-str {:success? true
+                            :restart-required? (boolean restart-required?)})})
+          (catch Exception e
+            (let [data (ex-data e)]
+              (if data
+                {:status 400
+                 :headers {"Content-Type" "application/edn"}
+                 :body (pr-str {:error (:cause data) :details data})}
+                (throw e)))))))
 
     [:post "/sync/start"]
     {:status 200
@@ -86,6 +143,44 @@
     {:status 200
      :headers {"Content-Type" "application/edn"}
      :body (pr-str (log/recent-logs))}
+
+    [:get "/history/recent"]
+    (let [limit-str (get-in req [:query-params "limit"])
+          limit (if limit-str
+                  (try (Integer/parseInt limit-str) (catch Exception _ 20))
+                  20)
+          store (app/current-history-store)]
+      {:status 200
+       :headers {"Content-Type" "application/edn"}
+       :body (pr-str (history/recent store limit))})
+
+    [:get "/peers"]
+    (let [registry (app/current-discovery-registry)
+          cfg (or (app/current-config) (config/load-config nil))
+          self-id (:node-id cfg)]
+      {:status 200
+       :headers {"Content-Type" "application/edn"}
+       :body (pr-str (discovery/recent-peers registry self-id))})
+
+    [:post "/pair"]
+    (let [body-str (slurp (:body req))]
+      (try
+        (let [body (edn/read-string body-str)
+              node-id (:node-id body)
+              registry (app/current-discovery-registry)
+              peer (get @registry node-id)]
+          (if peer
+            (let [result (app/initiate-pairing! peer @config-path-atom)]
+              {:status 200
+               :headers {"Content-Type" "application/edn"}
+               :body (pr-str result)})
+            {:status 404
+             :headers {"Content-Type" "application/edn"}
+             :body (pr-str {:success? false :reason "peer not found"})}))
+        (catch Exception e
+          {:status 400
+           :headers {"Content-Type" "application/edn"}
+           :body (pr-str {:success? false :reason (.getMessage e)})})))
 
     (let [method (:request-method req)
           uri (:uri req)]
@@ -112,8 +207,8 @@
 
 (defn- handler [req]
   (if (= :options (:request-method req))
-    (with-cors {:status 204})
-    (with-cors (handler* req))))
+    (with-cors req {:status 204})
+    (with-cors req (handler* req))))
 
 (defn start-api-server
   "启动 HTTP API server，返回 server 对象（一个可调用的停止函数）。"

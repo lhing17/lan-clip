@@ -21,7 +21,9 @@
    :max-frame-size 10485760
    :received-files-dir nil
    :log-file nil
-   :device-name ""})
+   :device-name ""
+   :retry-count 3
+   :retry-delay-ms 1000})
 
 (defn- read-edn-file
   "从指定路径读取 EDN 文件；文件不存在或 path 为 nil 时返回 nil。"
@@ -77,7 +79,8 @@
       cfg
       (assoc cfg :node-id (load-or-create-node-id)))))
 
-(defn- valid-port?
+(defn valid-port?
+  "校验端口是否为 1-65535 范围内的整数。"
   [p]
   (and (integer? p) (<= 1 p 65535)))
 

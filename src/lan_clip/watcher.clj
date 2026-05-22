@@ -1,5 +1,6 @@
 (ns lan-clip.watcher
   "可停止的剪贴板轮询 watcher，替代 util.clj 中不可停止的 set-interval。"
+  (:require [lan-clip.log :as log])
   (:import (java.util.concurrent Future)))
 
 (defn start-watcher
@@ -18,7 +19,7 @@
                    (catch InterruptedException _
                      (vreset! running false))
                    (catch Exception e
-                     (.printStackTrace e)))))
+                     (log/log! :error (str e))))))
      :stop! #(vreset! running false)}))
 
 (defn stop-watcher

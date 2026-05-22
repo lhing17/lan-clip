@@ -2,6 +2,9 @@
   (:gen-class)
   (:require [lan-clip.app :as app]
             [lan-clip.config :as config]
+            [lan-clip.discovery :as discovery]
+            [lan-clip.fingerprint :as fingerprint]
+            [lan-clip.history :as history]
             [lan-clip.socket.client :as client]
             [lan-clip.socket.server :as server]
             [lan-clip.util :as util])
@@ -9,6 +12,25 @@
            (java.awt.datatransfer DataFlavor Clipboard)
            (java.io File)
            (java.util UUID)))
+
+;; 用于描述剪贴版上内容的类 信息包括内容类型、长度和内容，其中内容类型包括字符串、图像或文件列表
+;; 如果类型为字符串或图像，长度为字符串或图像的大小，如果类型为文件列表，长度为文件列表中文件数量（List的长度）
+;; 内容为实际数据的md5值
+(defrecord ClipboardData [^DataFlavor flavor length contents])
+
+(def ^:private in-flight-sends (atom {}))
+
+(defn- peer-key [host port]
+  (str host ":" port))
+
+(defn- send-to-peer [host port client-data secret-key node-id retry-count retry-delay-ms]
+  "向单个 peer 发送剪贴板内容。每个 peer 拥有独立的 in-flight future，采用 latest-wins 策略。"
+  (let [key (peer-key host port)]
+    (when-let [old (get @in-flight-sends key)]
+      (future-cancel old))
+    (swap! in-flight-sends assoc key
+           (future (client/run-with-retry (client/->Client host port client-data secret-key node-id)
+                                          retry-count retry-delay-ms)))))
 
 (defn- best-fit-flavor
   "获取最适合当前剪贴板内容的flavor，根据测试结果，选择了文件列表>图像>字符串，这样可以使MacOS和Windows上的表现一致。"
@@ -18,18 +40,48 @@
                   DataFlavor/imageFlavor
                   DataFlavor/stringFlavor])))
 
-;; 处理剪贴版上不同的内容，发送到目标服务器
+(defn- active-peers
+  "返回当前活跃同步目标列表。优先使用发现到的 peer，若无则回退到配置的 target-host。"
+  [conf]
+  (let [discovered (when-let [reg (app/current-discovery-registry)]
+                     (discovery/recent-peers reg (:node-id conf)))]
+    (if (seq discovered)
+      (map #(select-keys % [:host :port]) discovered)
+      [{:host (:target-host conf) :port (:target-port conf)}])))
+
+;; 处理剪贴版上不同的内容，发送到所有活跃目标
 (defmulti handle-flavor (fn [clip conf _ _] (best-fit-flavor clip conf)))
 
+(defn- record-send-history! [type size peer]
+  "记录发送历史到全局存储。"
+  (when-let [store (app/current-history-store)]
+    (history/record! store
+                     {:timestamp (java.time.Instant/now)
+                      :direction :send
+                      :type type
+                      :size size
+                      :peer peer})))
+
+(defn- send-to-all-peers! [client-data size type conf node-id secret-key]
+  "向所有活跃 peer 发送剪贴板内容。"
+  (let [peers (active-peers conf)
+        retry-count (:retry-count conf 3)
+        retry-delay-ms (:retry-delay-ms conf 1000)]
+    (doseq [peer peers]
+      (when (and (:host peer) (:port peer))
+        (record-send-history! type size (:host peer))
+        (send-to-peer (:host peer) (:port peer)
+                      client-data secret-key node-id
+                      retry-count retry-delay-ms)))))
+
 (defmethod handle-flavor DataFlavor/stringFlavor [clip conf node-id secret-key]
-  (let [data (.getData clip DataFlavor/stringFlavor)
-        clnt (client/->Client (:target-host conf) (:target-port conf) data secret-key node-id)]
-    (future (client/run clnt))))
+  (let [data (.getData clip DataFlavor/stringFlavor)]
+    (send-to-all-peers! data (count data) :text conf node-id secret-key)))
 
 (defmethod handle-flavor DataFlavor/imageFlavor [clip conf node-id secret-key]
   (let [data (.getData clip DataFlavor/imageFlavor)
-        clnt (client/->Client (:target-host conf) (:target-port conf) data secret-key node-id)]
-    (future (client/run clnt))))
+        size (count (util/image->bytes (util/buffered-image data)))]
+    (send-to-all-peers! data size :image conf node-id secret-key)))
 
 (defmethod handle-flavor DataFlavor/javaFileListFlavor [clip conf node-id secret-key]
   (let [data (.getData clip DataFlavor/javaFileListFlavor)
@@ -39,13 +91,7 @@
     (if (seq oversized)
       (doseq [^File f oversized]
         (println "file-too-large:" (.getName f) "(" (.length f) "bytes >" max-size-kb "KB)"))
-      (let [clnt (client/->Client (:target-host conf) (:target-port conf) data secret-key node-id)]
-        (future (client/run clnt))))))
-
-;; 用于描述剪贴版上内容的类 信息包括内容类型、长度和内容，其中内容类型包括字符串、图像或文件列表
-;; 如果类型为字符串或图像，长度为字符串或图像的大小，如果类型为文件列表，长度为文件列表中文件数量（List的长度）
-;; 内容为实际数据的md5值
-(defrecord ClipboardData [^DataFlavor flavor length contents])
+      (send-to-all-peers! data (count data) :file-list conf node-id secret-key))))
 
 (def clip-data
   "临时存储每次复制后剪切版上的信息，如果非空，为`ClipboardData`类型的对象"
@@ -64,20 +110,12 @@
       DataFlavor/javaFileListFlavor
       (->ClipboardData flavor (count data) (util/md5 data)))))
 
-(defn clip-data-changed?
-  "判断剪贴板上的内容是否发生变化，包括类型、长度和内容（md5）"
-  [new-clip-data]
-  (or (not= (:flavor @clip-data) (:flavor new-clip-data))
-      (not= (:length @clip-data) (:length new-clip-data))
-      (not= (:contents @clip-data) (:contents new-clip-data))))
-
 (comment
   (defonce clip (.getSystemClipboard (Toolkit/getDefaultToolkit)))
   (def conf (config/load-config "config.edn"))
   (best-fit-flavor clip conf)
   (get-clip-data clip conf)
   @clip-data
-  (clip-data-changed? (get-clip-data clip conf))
   (reset! clip-data (get-clip-data clip conf))
   (handle-flavor clip conf node-id "lan-clip")
   (handle-flavor clip {:port 9002 :target-host "localhost" :target-port 9002} node-id "lan-clip")
@@ -89,7 +127,7 @@
   若当前内容与 last-remote-fp 匹配，则判定为远端回环，抑制发送并输出 loop-suppressed。"
   (let [clip (.getSystemClipboard (Toolkit/getDefaultToolkit))]
     (let [new-clip-data (get-clip-data clip conf)]
-      (when (clip-data-changed? new-clip-data)
+      (when (fingerprint/changed? @clip-data new-clip-data)
         (if (and @last-remote-fp
                  (= (:flavor new-clip-data) (:flavor @last-remote-fp))
                  (= (:length new-clip-data) (:length @last-remote-fp))
@@ -106,18 +144,6 @@
                        DataFlavor/javaFileListFlavor "file-list"
                        "unknown"))
             (handle-flavor clip conf node-id secret-key)))))))
-
-(defn lan-clip []
-  (let [conf (config/load-config "config.edn")
-        node-id (:node-id conf)
-        secret-key (:secret-key conf)]
-
-    ;; 默认每隔2秒钟访问剪切版的内容，可以通过:interval进行配置
-    (util/set-interval (:interval conf 2000) #(listen-clipboard node-id secret-key (atom nil) conf))
-
-    ;; 启动netty server，用于接收另一端传来的消息
-    (-> conf (:port) (int) (server/->Server secret-key (:max-frame-size conf)) (.run) (future))))
-
 
 (defn make-clipboard-handler
   "创建可供 app/start! 使用的剪贴板处理函数。"

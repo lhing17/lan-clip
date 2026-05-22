@@ -183,6 +183,19 @@ h1 {
   border-color: #396cd8;
 }
 
+.checkbox-label {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem !important;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 1.2rem;
+  height: 1.2rem;
+  cursor: pointer;
+}
+
 .logs-toolbar {
   display: flex;
   gap: 0.5rem;
@@ -268,6 +281,98 @@ h1 {
 
 .error-list li {
   margin-bottom: 0.25rem;
+}
+
+.peer-discovery {
+  margin: 0.5rem 0;
+  padding: 0.75rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.peer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.peer-header span {
+  font-size: 0.9rem;
+  color: #555;
+  font-weight: 500;
+}
+
+.peer-header .toggle-btn.small {
+  width: auto;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  margin-top: 0;
+}
+
+.empty-peers {
+  color: #888;
+  text-align: center;
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.peer-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.peer-item {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+  align-items: stretch;
+}
+
+.peer-item:last-child {
+  margin-bottom: 0;
+}
+
+.peer-select-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.peer-select-btn:hover {
+  background-color: #f0f0f0;
+  border-color: #396cd8;
+}
+
+.peer-name {
+  font-weight: 500;
+  color: #333;
+}
+
+.peer-meta {
+  color: #888;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8rem;
+}
+
+.pair-btn {
+  width: auto;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  margin-top: 0;
+  white-space: nowrap;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -368,5 +473,36 @@ h1 {
 
   .log-msg {
     color: #e0e0e0;
+  }
+
+  .peer-discovery {
+    background: #3a3a3a;
+    border-color: #555;
+  }
+
+  .peer-header span {
+    color: #aaa;
+  }
+
+  .empty-peers {
+    color: #aaa;
+  }
+
+  .peer-select-btn {
+    background: #2f2f2f;
+    border-color: #555;
+  }
+
+  .peer-select-btn:hover {
+    background-color: #3a3a3a;
+    border-color: #396cd8;
+  }
+
+  .peer-name {
+    color: #e0e0e0;
+  }
+
+  .peer-meta {
+    color: #aaa;
   }
 }
