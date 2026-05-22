@@ -105,7 +105,10 @@
       (if (> (count body-str) max-config-body-size)
         {:status 413
          :headers {"Content-Type" "application/edn"}
-         :body (pr-str {:error :body-too-large :max max-config-body-size})}
+         :body (pr-str {:success? false
+                        :error :body-too-large
+                        :message (str "Body exceeds " max-config-body-size " bytes")
+                        :max max-config-body-size})}
         (try
           (let [updates (edn/read-string body-str)
                 _ (validate-config-updates updates)
@@ -126,7 +129,10 @@
               (if data
                 {:status 400
                  :headers {"Content-Type" "application/edn"}
-                 :body (pr-str {:error (:cause data) :details data})}
+                 :body (pr-str {:success? false
+                                :error (:cause data)
+                                :message (.getMessage e)
+                                :details data})}
                 (throw e)))))))
 
     [:post "/sync/start"]
@@ -176,11 +182,15 @@
                :body (pr-str result)})
             {:status 404
              :headers {"Content-Type" "application/edn"}
-             :body (pr-str {:success? false :reason "peer not found"})}))
+             :body (pr-str {:success? false
+                            :error :peer-not-found
+                            :message "peer not found"})}))
         (catch Exception e
           {:status 400
            :headers {"Content-Type" "application/edn"}
-           :body (pr-str {:success? false :reason (.getMessage e)})})))
+           :body (pr-str {:success? false
+                          :error :invalid-request
+                          :message (.getMessage e)})})))
 
     (let [method (:request-method req)
           uri (:uri req)]

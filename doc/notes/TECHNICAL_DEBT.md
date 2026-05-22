@@ -28,9 +28,4 @@
 - **问题**：无 React Error Boundary，任何组件（如配置页表单渲染、历史页列表渲染）抛出未捕获异常时，整个应用可能白屏崩溃，用户只能强制重启。
 - **建议**：增加顶层 Error Boundary 组件，捕获错误后展示友好错误页和重启按钮。
 
-### API 错误响应格式不一致
-- **位置**：`src/lan_clip/api.clj:165-183`（`POST /pair`）
-- **问题**：`POST /pair` 成功返回 `{:success? true :secret-key ...}`，失败返回 `{:success? false :reason ...}`；但其他端点（如 `PUT /config`）使用 `{:error :xxx :details ...}` 格式。前端处理错误时需要兼容多种结构。
-- **建议**：统一所有 API 端点的错误响应结构，例如 `{:success? false :error :keyword :message "..."}`。
-
 ---
