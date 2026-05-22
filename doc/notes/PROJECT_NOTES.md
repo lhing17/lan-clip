@@ -2,6 +2,8 @@
 
 每轮 `.claude/loop.md` 闭环结束时追加一行，格式：`#YYYY-MM-DD 完成XX`。
 
+#2026-05-22 完成 README.md 重写为桌面应用使用指南：更新功能特性、安装方式、快速开始、配置表格、开发指南（三栈组合）、架构图和安全说明，移除过时的 jpackage 和已修复的限制描述。
+
 #2026-05-19 完成 Phase 0 工程清理基线：清理 `lein new` 模板失败断言、更新 `project.clj` 元信息、补全 `.gitignore`、改写 `CHANGELOG.md` 与 `doc/intro.md`、脱敏 `resources/config.edn`、README 增加运行限制与安全提示。
 #2026-05-19 完成 Phase 1 P0 第一步：新增 `lan-clip.config` 命名空间（默认配置 / 读取 / 合并 / 校验）及 6 个 `lein test` 用例（默认值 / 默认 host / 缺失文件 / 自定义覆盖 / 非法端口 / 默认配置自洽）。
 #2026-05-19 完成 Phase 1 P0 第二步：新增 `lan-clip.fingerprint` 命名空间（迁移 `ClipboardData` 记录、`fingerprint`、`changed?`）及 6 个 `lein test` 用例（文本 / 图片字节 / 文件列表 / flavor 变化 / 内容变化 / 相同内容）。
