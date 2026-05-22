@@ -19,6 +19,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Cache Leiningen dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-lein-${{ hashFiles('project.clj') }}
+          restore-keys: |
+            ${{ runner.os }}-lein-
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ui/node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('ui/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('ui/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -30,6 +56,10 @@ jobs:
         with:
           lein: 2.11.2
 
+      - name: Run Clojure tests
+        shell: bash
+        run: java -jar "$LEIN_JAR" -m leiningen.core.main test
+
       - name: Build uberjar
         shell: bash
         run: java -jar "$LEIN_JAR" -m leiningen.core.main uberjar
@@ -39,11 +69,17 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Install frontend dependencies
+        run: cd ui && npm install
+
+      - name: Run frontend tests
+        run: cd ui && npm run test
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install frontend dependencies
-        run: cd ui && npm install
+      - name: Run Rust tests
+        run: cd ui/src-tauri && cargo test
 
       - name: Build Tauri
         run: cd ui && npm run tauri build
