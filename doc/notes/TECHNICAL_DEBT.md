@@ -8,15 +8,7 @@
 
 ## P1 — 近期修复（影响功能正确性或可维护性）
 
-### CI 缺少测试步骤
-- **位置**：`.github/workflows/build.yml:1-67`
-- **问题**：CI 工作流仅运行 `lein uberjar` 和 `npm run tauri build`，未执行 `lein test`、`npm run test`、`cargo test`。回归测试无法被 CI 捕获，合并到主干后可能引入测试失败。
-- **建议**：在 `Build uberjar` 后增加 `lein test` 步骤，在 `Build Tauri` 前增加 `npm run test` 和 `cargo test` 步骤。测试失败时应阻止 artifact 上传。
-
-### CI 缺少依赖缓存
-- **位置**：`.github/workflows/build.yml:1-67`
-- **问题**：无 Leiningen（`~/.m2`）、npm（`ui/node_modules`）、Cargo（`~/.cargo`）缓存，每次 CI 运行都从网络全量下载依赖，构建时间显著增加。
-- **建议**：添加 `actions/cache` 步骤缓存上述目录，以 `project.clj`、`ui/package-lock.json`、`ui/src-tauri/Cargo.lock` 作为缓存 key 的一部分。
+（当前无 P1 项）
 
 ---
 
