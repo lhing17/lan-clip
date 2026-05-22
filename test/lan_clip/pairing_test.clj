@@ -62,8 +62,47 @@
         (is (= "new-shared-key" (:secret-key loaded))))
       (jio/delete-file config-file true))))
 
+(deftest pair-request-sends-response
+  (testing "收到 pair-request 后应发送 :accepted pair-response"
+    (let [config-file (str (System/getProperty "java.io.tmpdir") "/test-pair-resp-send-" (UUID/randomUUID) ".edn")
+          sent (atom nil)]
+      (config/save-config! config-file {:port 9002 :target-host "localhost" :target-port 9002
+                                        :secret-key "old-key" :device-name "Self"
+                                        :node-id #uuid "a1b2c3d4-e5f6-4789-abcd-ef0123456789"})
+      (with-redefs [discovery/send-pair-response! (fn [& args] (reset! sent args))]
+        (app/handle-pair-request "192.168.1.50"
+                                 {:node-id #uuid "d4e5f6a7-b8c9-7012-def0-123456789012"
+                                  :device-name "Peer-C"
+                                  :port 9003
+                                  :secret-key "new-shared-key"}
+                                 config-file
+                                 :mock-socket))
+      (is (some? @sent))
+      (is (= [:mock-socket "192.168.1.50" 9003
+              #uuid "a1b2c3d4-e5f6-4789-abcd-ef0123456789" "Self" 9002 :accepted]
+             @sent))
+      (jio/delete-file config-file true))))
+
+(deftest initiate-pairing-persists-secret-key
+  (testing "initiate-pairing! 应将生成的 secret-key 保存到本地配置"
+    (let [config-file (str (System/getProperty "java.io.tmpdir") "/test-init-pair-" (UUID/randomUUID) ".edn")]
+      (config/save-config! config-file {:port 9002 :target-host "localhost" :target-port 9002
+                                        :secret-key "old-key" :device-name "Self"
+                                        :node-id #uuid "a1b2c3d4-e5f6-4789-abcd-ef0123456789"})
+      (with-redefs [discovery/send-pair-request! (fn [& _] nil)]
+        (reset! @#'app/app-state {:running? true
+                                  :config (config/load-config config-file)
+                                  :discovery {:sender-socket :mock-socket}})
+        (let [result (app/initiate-pairing! {:host "192.168.1.50" :port 9003} config-file)]
+          (is (:success? result))
+          (is (some? (:secret-key result)))
+          (let [loaded (config/load-config config-file)]
+            (is (= (:secret-key result) (:secret-key loaded))))))
+      (reset! @#'app/app-state nil)
+      (jio/delete-file config-file true))))
+
 (deftest pair-response-accepted-updates-config
-  (testing "收到接受的 pair-response 后应更新 target-host/target-port"
+  (testing "收到接受的 pair-response 后应更新 target-host/target/port"
     (let [config-file (str (System/getProperty "java.io.tmpdir") "/test-pair-resp-" (UUID/randomUUID) ".edn")]
       (config/save-config! config-file {:port 9002 :target-host "localhost" :target-port 9002
                                         :secret-key "my-key" :device-name "Self"})
