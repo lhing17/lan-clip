@@ -5,6 +5,7 @@
             [lan-clip.discovery :as discovery]
             [lan-clip.fingerprint :as fingerprint]
             [lan-clip.history :as history]
+            [lan-clip.log :as log]
             [lan-clip.socket.client :as client]
             [lan-clip.socket.server :as server]
             [lan-clip.util :as util])
@@ -68,11 +69,13 @@
         retry-count (:retry-count conf 3)
         retry-delay-ms (:retry-delay-ms conf 1000)]
     (doseq [peer peers]
-      (when (and (:host peer) (:port peer))
-        (record-send-history! type size (:host peer))
-        (send-to-peer (:host peer) (:port peer)
-                      client-data secret-key node-id
-                      retry-count retry-delay-ms)))))
+      (if (and (:host peer) (:port peer))
+        (do (record-send-history! type size (:host peer))
+            (send-to-peer (:host peer) (:port peer)
+                          client-data secret-key node-id
+                          retry-count retry-delay-ms))
+        (log/log! :warn (str "skip-invalid-peer: missing host or port — "
+                             (select-keys peer [:node-id :device-name :host :port])))))))
 
 (defmethod handle-flavor DataFlavor/stringFlavor [clip conf node-id secret-key]
   (let [data (.getData clip DataFlavor/stringFlavor)]

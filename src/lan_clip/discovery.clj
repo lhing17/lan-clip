@@ -2,7 +2,8 @@
   "局域网设备发现与配对：基于 UDP 广播的 beacon 机制 + 定向配对消息。
   每个节点周期性向 255.255.255.255 发送 beacon，其他节点监听并维护 peer 列表。
   配对通过定向 UDP 消息完成：请求方发送 pair-request，接收方回复 pair-response。"
-  (:require [clojure.edn :as edn])
+  (:require [clojure.edn :as edn]
+            [lan-clip.log :as log])
   (:import (java.net DatagramSocket DatagramPacket InetAddress)
            (java.time Instant Duration)
            (java.util.concurrent.atomic AtomicBoolean)))
@@ -58,9 +59,13 @@
                          :port port
                          :version 1})
         bytes (.getBytes payload "UTF-8")
-        packet (DatagramPacket. bytes (alength bytes)
-                                (broadcast-address) discovery-port)]
-    (.send socket packet)))
+        len (alength bytes)]
+    (when (> len beacon-max-bytes)
+      (log/log! :warn (str "beacon-too-large: " len " bytes > " beacon-max-bytes
+                           ", will be truncated by receiver")))
+    (let [packet (DatagramPacket. bytes len
+                                  (broadcast-address) discovery-port)]
+      (.send socket packet))))
 
 (defn- send-udp!
   "向指定主机发送 UDP 消息。"

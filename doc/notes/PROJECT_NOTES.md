@@ -67,3 +67,4 @@
 #2026-05-22 修复配对流程两个 P1 bug：handle-pair-request 接受请求后发送 :accepted pair-response 完成握手；initiate-pairing! 生成密钥后立即持久化到本地配置，消除两端密钥分歧。新增 2 个配对测试，`lein test` 142 测试 / 383 断言全绿。
 #2026-05-22 完成 PR #11 全面代码审查：覆盖协议安全、网络层、应用层、API、前端、Rust、CI 六个模块，识别 2 个 P1（CI 缺测试/缓存）和 5 个 P2/P3（beacon 截断、无效 peer 静默跳过、EventLoopGroup 复用、Error Boundary、API 错误格式），更新 TECHNICAL_DEBT.md。
 #2026-05-22 完成 CI 增强：`.github/workflows/build.yml` 增加 `lein test`、`npm run test`、`cargo test` 三步测试，以及 Leiningen/npm/Cargo 三层依赖缓存（actions/cache）。TECHNICAL_DEBT.md P1 项清零。
+#2026-05-22 修复两个 P2 技术债：`core.clj` `send-to-all-peers!` 中对缺失 host/port 的 peer 增加 `log! :warn` 记录，替代静默跳过；`discovery.clj` `send-beacon!` 中增加 payload 大小检查，超过 `beacon-max-bytes` (1024) 时输出警告。TECHNICAL_DEBT.md 移除对应两项。

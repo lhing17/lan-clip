@@ -14,16 +14,6 @@
 
 ## P2 — 技术债（不影响当前功能，长期维护成本）
 
-### UDP beacon 可能超过固定缓冲区
-- **位置**：`src/lan_clip/discovery.clj:53-63`
-- **问题**：`beacon-max-bytes` 固定为 1024，`send-beacon!` 未检查 payload 实际大小。当 `device-name` 很长（如含多字节 UTF-8 字符）时，`pr-str` 后的 beacon 可能超过 1024 字节，导致接收端 `receive-udp!` 截断数据并 EDN 解析失败，peer 无法被发现。
-- **建议**：在 `send-beacon!` 中增加 payload 大小检查，超过阈值时截断 `device-name` 或输出警告日志。
-
-### 无效 peer 地址静默跳过
-- **位置**：`src/lan_clip/core.clj:56-60`
-- **问题**：`send-to-all-peers!` 中当 `host` 或 `port` 为 nil/空时通过 `(when (and (:host peer) (:port peer)))` 静默跳过，无日志记录。用户配置错误或配对失败时难以排查原因。
-- **建议**：在跳过分支中增加 `log/log! :warn` 记录无效的 peer 地址和原因。
-
 ### 每次发送创建新 Netty EventLoopGroup
 - **位置**：`src/lan_clip/socket/client.clj:27-58`
 - **问题**：`client/run` 每次调用都创建新的 `NioEventLoopGroup`，多 peer 同步场景下频繁创建/销毁线程池。`in-flight-sends` 的 `future-cancel` 虽取消旧 future，但 `shutdownGracefully` 非瞬时，线程资源可能短暂堆积。
