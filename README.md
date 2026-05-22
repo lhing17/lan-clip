@@ -1,123 +1,158 @@
 # lan-clip
 
-局域网公共剪贴板
+跨平台局域网剪贴板同步工具，支持在 macOS 与 Windows 之间互传文本、图片和文件。
 
-## 为什么开发lan-clip？
+## 功能特性
 
-我个人的主力开发机包括一台Macbook Pro和一台Win10系统的台式机。很多时候，我需要同时使用这两台电脑，而在两台电脑之间相互复制内容则是一个非常频繁的操作。
-比如，我在A电脑上登了社交软件，但我需要将B电脑上的内容截图，并通过社交软件发出。在没有lan-clip之前，这种操作很麻烦。
+- **剪贴板同步**：文本、图片、文件列表实时同步，剪贴板内容变化后自动推送到对端设备。
+- **设备发现**：同一局域网内自动发现其他运行 lan-clip 的设备，无需手动输入 IP。
+- **一键配对**：点击"配对"即可自动交换节点信息并生成共享密钥，降低配置门槛。
+- **多设备同步**：支持同时向多个已配对设备广播发送剪贴板内容。
+- **传输历史**：记录最近 100 次发送/接收事件的元数据（类型、大小、对端、时间），便于追溯。
+- **发送重试**：网络抖动时自动重试（默认 3 次），提高传输可靠性。
+- **系统托盘**：常驻托盘，支持快捷切换同步、打开接收目录、退出应用。
+- **自动更新**：内置更新检测，有新版本时一键下载安装。
+- **开机自启动**：可选在系统登录时自动启动。
 
-我了解到登录了iCloud的iPhone和Mac可以使用统一的剪贴板，即我可以在iPhone上复制内容，在Mac上进行粘贴。受此启发，我想到开发一个类似的工具，用于两台不同操作系统的电脑之间。
+## 安装
 
-## 原理简述
+从 [GitHub Releases](https://github.com/lhing17/lan-clip/releases) 下载对应平台的安装包：
 
-本工具使用jvm上的函数式语言Clojure进行开发，由于使用的多数是java的类库，因此和使用java开发区别并不是很大。
+| 平台 | 安装包 |
+|------|--------|
+| macOS | `.dmg` |
+| Windows | `.msi` 或 `.exe` |
 
-JDK中提供了操作系统中剪贴板的API，可以获取到剪贴板上的内容，或者向剪贴板上设置内容。
-可以监听某电脑上剪贴板上的内容，如果内容发生了变化，则将该内容通过网络发送给另一台电脑，并将这些内容设置到另一台电脑的剪贴板上。
+> **系统要求**：macOS 或 Windows，且系统中已安装 Java 运行时（JRE 11+）。首次启动时如未安装 Java，应用会提示。
 
-由于Mac系统上监听剪贴板的API(lostOwnership)存在BUG，为了跨平台使用，本工具使用了每2秒钟（这里应该可以配置）轮循读取剪贴板上的内容，并与缓存的内容进行比较的方式去监听剪贴板。这样的方式效率可能稍微低一些，但是暂时也没有更好的解决办法。
+### macOS 首次运行
 
-网络连接方面使用了Netty，基于TCP协议进行传输。
+由于当前使用 adhoc 签名，首次运行 `.app` 时 macOS 会弹出"无法验证开发者"安全提示。请在"系统设置 > 隐私与安全性"中手动允许。
 
-### 关于剪贴板
+## 快速开始
 
-JDK中使用Clipboard这个类来映射操作系统中的剪贴板，剪贴板上的内容常见的可以分为三类：文字、图像和文件列表。
-文字就是字符串，这个不用多说了。图像就是屏幕截图等操作时的类型，文件列表就是复制或者剪切文件时的类型。
+1. **在两台设备上安装并启动 lan-clip**。
+2. **设备发现**：打开应用，进入"配置"页，等待"已发现设备"列表刷新，应能看到对端设备。
+3. **配对**：点击对端设备的"配对"按钮。配对成功后，目标主机、端口和共享密钥将自动填充。
+4. **启动同步**：返回"状态"页，点击"启动同步"。此时任意一台设备复制内容，另一台即可粘贴。
+5. **查看历史**：进入"历史"页，查看最近的传输记录。
 
-实际开发过程中，发现各个操作系统对于上述几种类型的映射存在一定的差异。在Windows系统上，内容通常只被映射成唯一的类型，文字就是文字，图像就是图像。
-而在MacOS系统上，内容会被映射成所有可能的类型，如复制或剪切图片类型的文件时，它可以同时被映射成文字（文件名）、图像以及文件列表。
-为了填补这种差异，我将这几种常见类型规定了优先级，文件列表>图像>文字，这样只取优先级最高的类型，可以保证在各个系统中表现一致。
+## 配置
 
-除了上述差异外，各个操作系统对于图像类型的映射也不完全相同，只能保证读取的内容是java.awt.Image类型的对象（具体的子类型在各个操作系统上不一致）。
-而由于输出图像时需要使用的是BufferedImage类型，因此在处理时需要将Image类型转换成BufferedImage类型（如果已经是BuffererImage类型，直接返回即可）。
+配置文件位于 `~/.lan-clip/config.edn`（EDN 格式），也可通过应用内的"配置"页编辑。
 
-## 用途
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `:device-name` | 设备名称（显示给对端） | `""` |
+| `:port` | 本机监听端口 | `9615` |
+| `:target-host` / `:target-port` | 对端地址（配对后自动填充） | — |
+| `:secret-key` | HMAC 共享密钥（配对后自动生成） | — |
+| `:interval` | 剪贴板轮询间隔（毫秒） | `2000` |
+| `:file-size` | 文件大小上限（KB） | `2048` |
+| `:max-frame-size` | 协议最大帧大小（字节） | `10485760`（10MB）|
+| `:received-files-dir` | 接收文件存放目录 | `~/.lan-clip/received-files` |
+| `:retry-count` | 发送失败重试次数 | `3` |
+| `:retry-delay-ms` | 重试间隔（毫秒） | `1000` |
 
-同一局域网内，可以在不同的操作系统之间使用统一的剪贴板。已经在MacOS和Win10系统上进行了验证。
+> `:node-id` 由系统自动生成并持久化到 `~/.lan-clip/node-id`，通常无需手动配置。
 
-支持字符串、图像和文件类型的直接复制粘贴。文件较小时，直接发送给另一台电脑；文件较大时暂不处理。这个临界值可以配置。
+## 开发
 
-## 运行限制与安全提示
+### 技术栈
 
-> ⚠️ **当前版本属于受限场景下的早期实现，请仅在可信局域网内使用。**
-
-### 已知运行限制
-
-- 通信链路使用明文 TCP，**未加密、未鉴权**：任何能访问监听端口的设备都可以发送或接收剪贴板内容。
-- 服务端使用 Java 对象反序列化（Netty `ObjectEncoder` / `ObjectDecoder`）解析消息，且服务端 `ObjectDecoder` 最大长度设为 `Integer.MAX_VALUE`：任何能连接端口的客户端都可以构造对象流注入数据，存在 JVM 反序列化攻击面和超大消息耗尽内存的风险。
-- 当前只支持一对一直连（一台机器把内容发送到 `:target-host`），没有多 peer 同步策略。
-- 通过约 2 秒（`:interval` 可配置）轮询读取剪贴板，不监听 OS 事件；复制后到对端落地最大延迟约 1 个轮询周期。
-- 文件传输只在总大小不超过 `:file-size`（代码默认 2048 KB，仓库示例配置为 4096 KB）时发送；超过则当前轮静默跳过，仅在标准输出打印一行提示。
-- 接收端把文件写入系统临时目录后再设到剪贴板；同名文件可能被覆盖，没有按消息隔离的批次目录。
-- 没有回环抑制：A → B 写入剪贴板后，B 上的轮询可能再次把同样内容发回 A。详见 `doc/notes/TODO.md` 的 Phase 3。
-
-### 安全使用建议
-
-- **仅在可信局域网内运行**，绝对不要让监听端口对公网或办公 / 校园等不可信网络开放。
-- 不要使用本工具同步密码、Token、机密文档等高敏感剪贴板内容。
-- 不要在多用户共享主机上启动 lan-clip 服务端；任何登录到该主机的用户都可能向端口投递消息。
-- 修改 `~/.lan-clip/config.edn` 时，不要把真实局域网 IP 或共享密钥提交到公共仓库。
-- 持续进行中的协议加固（HMAC 签名、移除对象反序列化、回环抑制、payload 上限）见 `doc/notes/TODO.md` 的 Phase 2 / Phase 3。
-
-## 如何使用？
-
-两台电脑上各启动一个jvm程序即可，可以将本项目打成jar包，然后通过
-```shell
-java -jar XXX.jar
-```
-命令进行启动。
-
-正式版发布后，会提供各个系统的native package。
-
-注意修改配置文件，确定好本机器使用的端口，以及目标机器的ip和端口。配置文件的位置在
-> 用户目录/.lan-clip/config.edn
-
-用文本编辑器即可进行修改。
-
-## 如何开发？
+- **后端核心**：Clojure + JVM + Netty（TCP 通信）
+- **桌面前端**：Tauri v2（Rust 后端）+ React + TypeScript（Vite 构建）
+- **项目管理**：Leiningen（Clojure）、npm（前端）、Cargo（Rust）
 
 ### 开发环境要求
-- JDK 11以上版本
-- Clojure 1.10.1以上版本
-- leiningen 2.9.3以上版本
-- 开发工具可以使用Intellij IDEA + Cursive或者Emacs + cider
 
-本项目使用leiningen进行项目管理，可以先在本机安装leiningen，然后在Intellij idea中将项目导入为leiningen项目（需要安装Cursive插件，有免费license）。
-也可以使用emacs+cider的方式进行开发。
+- JDK 11+
+- Leiningen 2.9.3+
+- Node.js 20+
+- Rust + Cargo
 
-启动项目：
-```shell
+### 启动开发
+
+```bash
+# 启动 Clojure 后端（sidecar）
 lein run
+
+# 前端开发（仅前端，不启动 Tauri）
+cd ui && npm run dev
+
+# Tauri 开发模式（前后端 + Rust）
+cd ui && npm run tauri dev
 ```
 
-可以使用以下命令将项目打包为jar包
-```shell
+### 测试
+
+```bash
+# Clojure 测试
+lein test
+
+# 前端测试
+cd ui && npm run test
+
+# Rust 测试
+cd ui/src-tauri && cargo test
+
+# 组合验证
+lein test && cd ui && npm run test && cargo test
+```
+
+### 构建
+
+```bash
+# 打包 Clojure uberjar
 lein uberjar
+
+# 构建桌面安装包（macOS / Windows）
+cd ui && npm run tauri build
 ```
 
-可以使用jdk14以上版本所带的jpackage将jar包打成可执行文件，mac系统上为dmg，windows系统上为exe。
-在Windows系统上进行打包时，依赖于Wix工具。
+CI 已配置 GitHub Actions 自动构建，推送代码后可在 Actions 页面下载产物。
 
-MacOS
-```shell
-jpackage --type dmg -i target -n LanClip --main-class lan_clip.core --main-jar lan-clip-1.0-standalone.jar
+## 架构
+
+```text
+┌─────────────────────────────────────────┐
+│           Tauri Desktop App             │
+│  ┌──────────────┐  ┌─────────────────┐  │
+│  │  Frontend UI │  │ Tauri Rust Host │  │
+│  │  (React/TS)  │  │  Tray/Updater   │  │
+│  └──────┬───────┘  └────────┬────────┘  │
+└─────────┼───────────────────┼───────────┘
+          │  HTTP localhost   │
+┌─────────┼───────────────────┼───────────┐
+│         ▼                   ▼           │
+│      lan-clip-core sidecar (Clojure)    │
+│         Clipboard Watcher               │
+│         Sync Engine                     │
+│         Peer Transport (Netty)          │
+└─────────────────────────────────────────┘
 ```
 
-Windows
-```shell
- jpackage --type msi -i target -n LanClip --main-class lan_clip.core --main-jar lan-clip-1.0-standalone.jar --win-dir-chooser --win-shortcut
-```
+Tauri 前端通过 localhost HTTP 管理 API 与 Clojure sidecar 通信。剪贴板监听、内容编码、网络传输和接收写入由 sidecar 负责；桌面 UI、系统托盘、窗口管理和自动更新由 Tauri 负责。
 
-## 支持项目/贡献代码
+## 协议与安全
 
-欢迎Star。
+- **传输协议**：自定义二进制协议（magic + version + EDN metadata + payload），基于 Netty TCP。
+- **消息认证**：每条消息携带 HMAC-SHA256 签名，使用共享密钥 `:secret-key` 计算。服务端拒绝 HMAC 校验失败的消息。
+- **回环抑制**：远端写入剪贴板后记录指纹，本地轮询识别到相同指纹时抑制发送，避免内容在设备间无限循环。
+- **Payload 上限**：服务端限制最大帧大小（默认 10MB），超限消息立即拒绝。
+- **消息去重**：基于 `message-id`（UUID）的 LRU 缓存，防止重复处理同一条消息。
 
-欢迎issue和pull request。
+> **注意**：当前通信仍为明文 TCP（无加密），请仅在可信局域网内使用。
+
+## 安全提示
+
+- **仅在可信局域网内运行**，不要让监听端口对公网或不可信网络开放。
+- 不要使用本工具同步密码、Token、机密文档等高敏感剪贴板内容。
+- 修改 `~/.lan-clip/config.edn` 时，不要把真实局域网 IP 或共享密钥提交到公共仓库。
 
 ## License
 
-Copyright © 2022 Hao Liang
+Copyright (C) 2022 Hao Liang
 
 This program and the accompanying materials are made available under the
 terms of the Eclipse Public License 2.0 which is available at
