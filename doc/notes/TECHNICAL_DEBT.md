@@ -37,6 +37,10 @@
 - **问题**：`client/run` 每次调用都创建新的 `NioEventLoopGroup`，多 peer 同步场景下频繁创建/销毁线程池。`in-flight-sends` 的 `future-cancel` 虽取消旧 future，但 `shutdownGracefully` 非瞬时，线程资源可能短暂堆积。
 - **建议**：长期考虑复用 `NioEventLoopGroup`（如作为应用状态的一部分）或使用连接池，减少每次发送的线程创建开销。
 
+---
+
+## P3 — 技术债（优化点 Nice to Have）
+
 ### 前端缺少 Error Boundary
 - **位置**：`ui/src/App.tsx`
 - **问题**：无 React Error Boundary，任何组件（如配置页表单渲染、历史页列表渲染）抛出未捕获异常时，整个应用可能白屏崩溃，用户只能强制重启。
