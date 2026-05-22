@@ -69,3 +69,4 @@
 #2026-05-22 完成 CI 增强：`.github/workflows/build.yml` 增加 `lein test`、`npm run test`、`cargo test` 三步测试，以及 Leiningen/npm/Cargo 三层依赖缓存（actions/cache）。TECHNICAL_DEBT.md P1 项清零。
 #2026-05-22 修复两个 P2 技术债：`core.clj` `send-to-all-peers!` 中对缺失 host/port 的 peer 增加 `log! :warn` 记录，替代静默跳过；`discovery.clj` `send-beacon!` 中增加 payload 大小检查，超过 `beacon-max-bytes` (1024) 时输出警告。TECHNICAL_DEBT.md 移除对应两项。
 #2026-05-22 修复 P3 API 错误响应格式不一致：`PUT /config` 和 `POST /pair` 错误响应统一为 `{:success? false :error :keyword :message "..."}` 结构（保留 `:details` / `:max` 等附加字段）。TECHNICAL_DEBT.md 移除对应项。
+#2026-05-22 添加 React Error Boundary：`ui/src/App.tsx` 新增 `ErrorBoundary` 类组件，捕获未处理异常后展示友好错误页（含错误信息和重启按钮），避免整个应用白屏崩溃。`App.css` 配套样式。TECHNICAL_DEBT.md 移除对应项。

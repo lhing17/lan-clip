@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Component, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 import { listen } from "@tauri-apps/api/event";
@@ -24,6 +24,40 @@ import {
 import { openPath } from "@tauri-apps/plugin-opener";
 import { notifyError } from "./notifications";
 import "./App.css";
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error?: Error }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("ErrorBoundary caught:", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="error-boundary">
+          <h1>应用出现错误</h1>
+          <p>lan-clip 遇到了意外问题，请尝试重启应用。</p>
+          <pre>{this.state.error?.message}</pre>
+          <button
+            className="toggle-btn"
+            onClick={() => location.reload()}
+          >
+            重启应用
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface AppState {
   sidecarRunning: boolean;
@@ -756,4 +790,10 @@ function LogsPage() {
   );
 }
 
-export default App;
+export default function AppWithBoundary() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
+}

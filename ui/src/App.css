@@ -506,3 +506,31 @@ h1 {
     color: #aaa;
   }
 }
+
+.error-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  text-align: center;
+  background: #f6f6f6;
+}
+
+.error-boundary h1 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: #d32f2f;
+}
+
+.error-boundary pre {
+  background: #fff;
+  padding: 1rem;
+  border-radius: 8px;
+  max-width: 600px;
+  overflow: auto;
+  color: #555;
+  font-size: 0.875rem;
+  margin: 1rem 0;
+}
