@@ -51,15 +51,23 @@
 (declare stop!)
 
 (defn handle-pair-request
-  "处理收到的配对请求：自动接受，更新配置，发送响应。"
-  [sender-host msg config-path]
-  (let [current (or (config/load-config config-path) config/default-config)
-        updated (merge current
-                       {:target-host sender-host
-                        :target-port (:port msg)
-                        :secret-key (:secret-key msg)})]
-    (config/save-config! config-path updated)
-    (println "pair-accepted:" (:device-name msg) "(" sender-host ")")))
+  "处理收到的配对请求：自动接受，更新配置，发送 :accepted pair-response。
+  可选 socket 参数用于发送响应；未提供时从 app-state 获取。"
+  ([sender-host msg config-path]
+   (handle-pair-request sender-host msg config-path
+                        (get-in @app-state [:discovery :sender-socket])))
+  ([sender-host msg config-path socket]
+   (let [current (or (config/load-config config-path) config/default-config)
+         updated (merge current
+                        {:target-host sender-host
+                         :target-port (:port msg)
+                         :secret-key (:secret-key msg)})]
+     (config/save-config! config-path updated)
+     (println "pair-accepted:" (:device-name msg) "(" sender-host ")")
+     (when socket
+       (discovery/send-pair-response! socket sender-host (:port msg)
+                                      (:node-id current) (:device-name current)
+                                      (:port current) :accepted)))))
 
 (defn handle-pair-response
   "处理收到的配对响应：如接受则更新配置。"
@@ -74,13 +82,17 @@
 
 (defn initiate-pairing!
   "向指定 peer 发起配对请求。peer 应为 recent-peers 返回的 map。
-  生成随机共享密钥，发送 pair-request，返回 {:success? true/false :reason ...}。"
+  生成随机共享密钥，保存到本地配置，发送 pair-request，
+  返回 {:success? true/false :reason ...}。"
   [peer config-path]
   (if-let [st @app-state]
     (let [cfg (:config st)
           socket (get-in st [:discovery :sender-socket])]
       (if socket
-        (let [secret-key (str (java.util.UUID/randomUUID))]
+        (let [secret-key (str (java.util.UUID/randomUUID))
+              current (or (config/load-config config-path) config/default-config)
+              updated (merge current {:secret-key secret-key})]
+          (config/save-config! config-path updated)
           (discovery/send-pair-request! socket
                                         (:host peer)
                                         discovery/discovery-port
