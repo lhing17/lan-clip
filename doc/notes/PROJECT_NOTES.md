@@ -63,3 +63,7 @@
 #2026-05-21 完成 Phase 8 P2 增加多 peer 同步策略：`core.clj` 改为向所有发现的 peer 广播发送（`active-peers` + `send-to-all-peers!`），每个 peer 独立维护 in-flight future（latest-wins 取消策略，`send-to-peer` + `in-flight-sends` map atom）；`api.clj` `/status` 返回 `:peer-count`；前端状态页显示活跃 peers 数量。新增 `api_test.clj` 1 个测试（peer-count）。`lein test` 140 测试 / 378 断言全绿，`cargo test` 5 测试全绿，`npm run test` 17 测试全绿。TODO.md 删除对应项。
 #2026-05-21 完成 Phase 8 P3 评估 Clojure sidecar 迁移到 Rust/Tauri 后端：输出完整评估文档 `doc/notes/rust-migration-evaluation.md`。结论：短期推荐 jlink 精简 JRE 方案（3-5 天工作量，解决用户需自行安装 JVM 的最大痛点），中长期视 Rust 剪贴板生态成熟度（尤其是文件列表跨平台支持）决定是否启动全量迁移（预估 26-35 人天）。TODO.md 更新 P3 状态为已评估。
 #2026-05-21 完成 Phase 7 状态梳理与 CI 产物验证：确认 Windows CI 已生成 `lan-clip_1.0.0_x64_en-US.msi` + `lan-clip_1.0.0_x64-setup.exe`；确认图标 `icons/` 全套已配置；确认版本号四文件一致（1.0/1.0.0）；确认签名策略已记录于 `release-checklist.md`。TODO.md 更新：P0 Windows 构建与 P2 梳理标记为已完成；macOS/Windows 互传验证、防火墙/残留进程验证标记为 `[!]` 需人工介入。
+#2026-05-22 完成 README.md 重写为桌面应用使用指南：更新功能特性、安装方式、快速开始、配置表格、开发指南（三栈组合）、架构图和安全说明，移除过时的 jpackage 和已修复的限制描述。
+#2026-05-22 修复配对流程两个 P1 bug：handle-pair-request 接受请求后发送 :accepted pair-response 完成握手；initiate-pairing! 生成密钥后立即持久化到本地配置，消除两端密钥分歧。新增 2 个配对测试，`lein test` 142 测试 / 383 断言全绿。
+#2026-05-22 完成 PR #11 全面代码审查：覆盖协议安全、网络层、应用层、API、前端、Rust、CI 六个模块，识别 2 个 P1（CI 缺测试/缓存）和 5 个 P2/P3（beacon 截断、无效 peer 静默跳过、EventLoopGroup 复用、Error Boundary、API 错误格式），更新 TECHNICAL_DEBT.md。
+#2026-05-22 完成 CI 增强：`.github/workflows/build.yml` 增加 `lein test`、`npm run test`、`cargo test` 三步测试，以及 Leiningen/npm/Cargo 三层依赖缓存（actions/cache）。TECHNICAL_DEBT.md P1 项清零。
